@@ -1,0 +1,295 @@
+{
+    "info": {
+      "name": "Data Care API",
+      "description": "Postman collection for Data Care mobile API (v1).",
+      "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "variable": [
+      {
+        "key": "baseUrl",
+        "value": "http://localhost:8000"
+      },
+      {
+        "key": "token",
+        "value": ""
+      }
+    ],
+    "item": [
+      {
+        "name": "Auth - Login",
+        "request": {
+          "method": "POST",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "url": {
+            "raw": "{{baseUrl}}/api/v1/login",
+            "host": ["{{baseUrl}}"],
+            "path": ["api", "v1", "login"]
+          },
+          "body": {
+            "mode": "raw",
+            "raw": "{\n  \"email\": \"admin@example.com\",\n  \"password\": \"password\"\n}"
+          }
+        }
+      },
+      {
+        "name": "Auth - Login (Form)",
+        "request": {
+          "method": "POST",
+          "header": [],
+          "url": {
+            "raw": "{{baseUrl}}/api/v1/login",
+            "host": ["{{baseUrl}}"],
+            "path": ["api", "v1", "login"]
+          },
+          "body": {
+            "mode": "formdata",
+            "formdata": [
+              { "key": "email", "value": "admin@example.com", "type": "text" },
+              { "key": "password", "value": "password", "type": "text" }
+            ]
+          }
+        }
+      },
+      {
+        "name": "Auth - Me",
+        "request": {
+          "method": "GET",
+          "header": [
+            {
+              "key": "Authorization",
+              "value": "Bearer {{token}}"
+            }
+          ],
+          "url": {
+            "raw": "{{baseUrl}}/api/v1/me",
+            "host": ["{{baseUrl}}"],
+            "path": ["api", "v1", "me"]
+          }
+        }
+      },
+      {
+        "name": "Auth - Logout",
+        "request": {
+          "method": "POST",
+          "header": [
+            {
+              "key": "Authorization",
+              "value": "Bearer {{token}}"
+            }
+          ],
+          "url": {
+            "raw": "{{baseUrl}}/api/v1/logout",
+            "host": ["{{baseUrl}}"],
+            "path": ["api", "v1", "logout"]
+          }
+        }
+      },
+      {
+        "name": "Profile - Update",
+        "request": {
+          "method": "PUT",
+          "header": [
+            {
+              "key": "Authorization",
+              "value": "Bearer {{token}}"
+            },
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "url": {
+            "raw": "{{baseUrl}}/api/v1/profile",
+            "host": ["{{baseUrl}}"],
+            "path": ["api", "v1", "profile"]
+          },
+          "body": {
+            "mode": "raw",
+            "raw": "{\n  \"name\": \"Alex Johnson\",\n  \"dob\": \"1992-08-17\",\n  \"gender\": \"female\",\n  \"address\": \"123 Main Street\",\n  \"country\": \"India\",\n  \"state\": \"Gujarat\",\n  \"city\": \"Ahmedabad\",\n  \"pin_code\": \"380015\",\n  \"photo\": \"https://example.com/profile.png\",\n  \"date_of_joining\": \"2024-01-12\",\n  \"bill_distribution_entery_count\": 24,\n  \"survey_data_entery_count\": 18\n}"
+          }
+        }
+      },
+      {
+        "name": "Profile - Change Password",
+        "request": {
+          "method": "POST",
+          "header": [
+            {
+              "key": "Authorization",
+              "value": "Bearer {{token}}"
+            },
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "url": {
+            "raw": "{{baseUrl}}/api/v1/change-password",
+            "host": ["{{baseUrl}}"],
+            "path": ["api", "v1", "change-password"]
+          },
+          "body": {
+            "mode": "raw",
+            "raw": "{\n  \"current_password\": \"password\",\n  \"password\": \"NewPassword123\",\n  \"password_confirmation\": \"NewPassword123\"\n}"
+          }
+        }
+      },
+      {
+        "name": "Customers - List",
+        "request": {
+          "method": "GET",
+          "header": [
+            {
+              "key": "Authorization",
+              "value": "Bearer {{token}}"
+            }
+          ],
+          "url": {
+            "raw": "{{baseUrl}}/api/v1/customers?source_type=survey&search=&municipality_name=&colony_name=&category=&authorization_status=&updated_after=",
+            "host": ["{{baseUrl}}"],
+            "path": ["api", "v1", "customers"],
+            "query": [
+              { "key": "source_type", "value": "survey" },
+              { "key": "search", "value": "" },
+              { "key": "municipality_name", "value": "" },
+              { "key": "colony_name", "value": "" },
+              { "key": "category", "value": "" },
+              { "key": "authorization_status", "value": "" },
+              { "key": "updated_after", "value": "" }
+            ]
+          }
+        }
+      },
+      {
+        "name": "Customers - Create",
+        "request": {
+          "method": "POST",
+          "header": [
+            {
+              "key": "Authorization",
+              "value": "Bearer {{token}}"
+            },
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "url": {
+            "raw": "{{baseUrl}}/api/v1/customers",
+            "host": ["{{baseUrl}}"],
+            "path": ["api", "v1", "customers"]
+          },
+          "body": {
+            "mode": "raw",
+            "raw": "{\n  \"name\": \"Owner Name\",\n  \"municipality_name\": \"BAHADURGARH\",\n  \"property_details_property_id\": \"3BJ5YNF6\",\n  \"integrated_pid_property_id\": \"BGR/W19/394\",\n  \"integrated_pid_owner_occupier_name\": \"MURATI\",\n  \"area_of_authority\": \"Approved\",\n  \"colony_name\": \"Unapproved Area Aggarwal Colony\",\n  \"address_of_property\": \"Aggarwal Colony, Bahadurgarh\",\n  \"mobile_no\": \"8814000555\",\n  \"category\": \"Commercial\",\n  \"total_area\": 95.25,\n  \"unit\": \"SqYard\",\n  \"authorization_status\": \"approved\",\n  \"property_image_url\": \"https://example.com/image.jpg\",\n  \"source_type\": \"survey\"\n}"
+          }
+        }
+      },
+      {
+        "name": "Customers - Show",
+        "request": {
+          "method": "GET",
+          "header": [
+            {
+              "key": "Authorization",
+              "value": "Bearer {{token}}"
+            }
+          ],
+          "url": {
+            "raw": "{{baseUrl}}/api/v1/customers/1",
+            "host": ["{{baseUrl}}"],
+            "path": ["api", "v1", "customers", "1"]
+          }
+        }
+      },
+      {
+        "name": "Customers - Update",
+        "request": {
+          "method": "PUT",
+          "header": [
+            {
+              "key": "Authorization",
+              "value": "Bearer {{token}}"
+            },
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "url": {
+            "raw": "{{baseUrl}}/api/v1/customers/1",
+            "host": ["{{baseUrl}}"],
+            "path": ["api", "v1", "customers", "1"]
+          },
+          "body": {
+            "mode": "raw",
+            "raw": "{\n  \"name\": \"Owner Name\",\n  \"municipality_name\": \"BAHADURGARH\",\n  \"property_details_property_id\": \"3BJ5YNF6\",\n  \"integrated_pid_property_id\": \"BGR/W19/394\",\n  \"integrated_pid_owner_occupier_name\": \"MURATI\",\n  \"area_of_authority\": \"Approved\",\n  \"colony_name\": \"Unapproved Area Aggarwal Colony\",\n  \"address_of_property\": \"Aggarwal Colony, Bahadurgarh\",\n  \"mobile_no\": \"8814000555\",\n  \"category\": \"Commercial\",\n  \"total_area\": 95.25,\n  \"unit\": \"SqYard\",\n  \"authorization_status\": \"approved\",\n  \"property_image_url\": \"https://example.com/image.jpg\"\n}"
+          }
+        }
+      },
+      {
+        "name": "Customers - Update (Form)",
+        "request": {
+          "method": "PUT",
+          "header": [
+            { "key": "Authorization", "value": "Bearer {{token}}" }
+          ],
+          "url": {
+            "raw": "{{baseUrl}}/api/v1/customers/1",
+            "host": ["{{baseUrl}}"],
+            "path": ["api", "v1", "customers", "1"]
+          },
+          "body": {
+            "mode": "formdata",
+            "formdata": [
+              { "key": "name", "value": "Owner Name", "type": "text" },
+              { "key": "municipality_name", "value": "BAHADURGARH", "type": "text" },
+              { "key": "property_details_property_id", "value": "3BJ5YNF6", "type": "text" },
+              { "key": "integrated_pid_property_id", "value": "BGR/W19/394", "type": "text" },
+              { "key": "integrated_pid_owner_occupier_name", "value": "MURATI", "type": "text" },
+              { "key": "area_of_authority", "value": "Approved", "type": "text" },
+              { "key": "colony_name", "value": "Unapproved Area Aggarwal Colony", "type": "text" },
+              { "key": "address_of_property", "value": "Aggarwal Colony, Bahadurgarh", "type": "text" },
+              { "key": "mobile_no", "value": "8814000555", "type": "text" },
+              { "key": "category", "value": "Commercial", "type": "text" },
+              { "key": "total_area", "value": "95.25", "type": "text" },
+              { "key": "unit", "value": "SqYard", "type": "text" },
+              { "key": "authorization_status", "value": "approved", "type": "text" },
+              { "key": "property_image_url", "value": "https://example.com/image.jpg", "type": "text" }
+            ]
+          }
+        }
+      },
+      {
+        "name": "Sync - Batch Updates",
+        "request": {
+          "method": "POST",
+          "header": [
+            {
+              "key": "Authorization",
+              "value": "Bearer {{token}}"
+            },
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "url": {
+            "raw": "{{baseUrl}}/api/v1/sync",
+            "host": ["{{baseUrl}}"],
+            "path": ["api", "v1", "sync"]
+          },
+          "body": {
+            "mode": "raw",
+            "raw": "{\n  \"updates\": [\n    {\n      \"id\": 1,\n      \"updated_at\": \"2026-01-15 10:30:00\",\n      \"data\": {\n        \"name\": \"Owner Name\",\n        \"municipality_name\": \"BAHADURGARH\",\n        \"property_details_property_id\": \"3BJ5YNF6\",\n        \"integrated_pid_property_id\": \"BGR/W19/394\",\n        \"integrated_pid_owner_occupier_name\": \"MURATI\",\n        \"area_of_authority\": \"Approved\",\n        \"colony_name\": \"Unapproved Area Aggarwal Colony\",\n        \"address_of_property\": \"Aggarwal Colony, Bahadurgarh\",\n        \"mobile_no\": \"8814000555\",\n        \"category\": \"Commercial\",\n        \"total_area\": 95.25,\n        \"unit\": \"SqYard\",\n        \"authorization_status\": \"approved\",\n        \"property_image_url\": \"https://example.com/image.jpg\"\n      }\n    }\n  ]\n}"
+          }
+        }
+      }
+    ]
+  }
+  
