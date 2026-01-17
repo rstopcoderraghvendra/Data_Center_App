@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:developer';
 import 'package:http/http.dart' as http;
 import '../constants/api_endpoints.dart';
 import '../storage/local_storage.dart';
@@ -17,6 +18,7 @@ class ApiClient {
     Map<String, String>? query,
   }) async {
     final uri = Uri.parse('$baseUrl$path').replace(queryParameters: query);
+    log('url: $uri');
     final headers = await _headers();
     final response = await http.get(uri, headers: headers);
     return _handleResponse(response);
@@ -64,6 +66,7 @@ class ApiClient {
 
   Future<Map<String, String>> _headers() async {
     final token = await getToken();
+    log('token: $token');
     final headers = <String, String>{
       'Content-Type': 'application/json',
       'Accept': 'application/json',

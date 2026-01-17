@@ -1,7 +1,10 @@
 import 'dart:async';
+import 'package:data_care_app/core/storage/local_storage.dart';
+import 'package:data_care_app/data/repositories/auth_repository.dart';
 import 'package:flutter/material.dart';
 import '../../../app/routes/route_names.dart';
 import '../../../core/constants/app_strings.dart';
+import '../../../core/network/api_client.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -11,15 +14,35 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> {
+  final _authRepository = AuthRepository(ApiClient(storage: LocalStorage()));
   @override
   void initState() {
     super.initState();
-    Timer(const Duration(seconds: 1), () {
-      if (!mounted) {
-        return;
-      }
+    // Timer(const Duration(seconds: 1), () {
+    //   if (!mounted) {
+    //     return;
+    //   }
+    //   Navigator.of(context).pushReplacementNamed(RouteNames.login);
+    // });
+
+    _initAuth();
+  }
+
+  Future<void> _initAuth() async {
+    // Add a small delay for splash screen
+    await Future.delayed(const Duration(seconds: 1));
+
+    if (!mounted) return;
+
+    final isLoggedIn = await _authRepository.isLoggedIn();
+
+    if (isLoggedIn) {
+      // User is logged in, navigate to home
+      Navigator.of(context).pushReplacementNamed(RouteNames.home);
+    } else {
+      // User is not logged in, navigate to login
       Navigator.of(context).pushReplacementNamed(RouteNames.login);
-    });
+    }
   }
 
   @override

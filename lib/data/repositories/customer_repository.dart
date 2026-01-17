@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import '../../core/constants/api_endpoints.dart';
 import '../../core/network/api_client.dart';
 
@@ -31,6 +33,7 @@ class CustomerRepository {
           'updated_after': updatedAfter,
       },
     );
+    log('Fetched customers: $response');
     // Handle Laravel pagination response
     final data = response['data'];
     if (data is List) {
@@ -38,7 +41,7 @@ class CustomerRepository {
     }
     // Fallback: if response is directly a list
     if (response is List) {
-      return response.cast<Map<String, dynamic>>();
+      return (response as List).cast<Map<String, dynamic>>();
     }
     return [];
   }
