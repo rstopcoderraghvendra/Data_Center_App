@@ -21,36 +21,6 @@ class _HomeScreenState extends State<HomeScreen> {
   final AuthRepository _authRepository =
       AuthRepository(ApiClient(storage: LocalStorage()));
 
-  Future<void> _logout(BuildContext context) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Logout'),
-        content: const Text('Are you sure you want to logout?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Logout'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed == true) {
-      await _authRepository.logout();
-
-      // Navigate to login screen and clear all previous routes
-      Navigator.of(context).pushNamedAndRemoveUntil(
-        RouteNames.login,
-        (route) => false,
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -60,7 +30,6 @@ class _HomeScreenState extends State<HomeScreen> {
         onSearchToggle: () {
           setState(() => _showSearch = !_showSearch);
         },
-        onLogout: () => _logout(context),
       ),
       body: IndexedStack(
         index: _currentIndex,
