@@ -58,8 +58,8 @@ class HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
               : EdgeInsets.zero,
           child: isSearchVisible
               ? Container(
-                  decoration: BoxDecoration(
-                    color: colorScheme.surface,
+          decoration: BoxDecoration(
+            color: colorScheme.surface,
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
                       color: colorScheme.outlineVariant.withValues(alpha: 0.7),
@@ -71,11 +71,11 @@ class HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
                         offset: const Offset(0, 4),
                       ),
                     ],
-                  ),
+          ),
                   padding:
                       const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                   child: Row(
-                    children: [
+            children: [
                       Container(
                         height: 34,
                         width: 34,
@@ -90,23 +90,23 @@ class HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
                         ),
                       ),
                       const SizedBox(width: 10),
-                      Expanded(
-                        child: TextField(
-                          decoration: InputDecoration(
+              Expanded(
+                child: TextField(
+                  decoration: InputDecoration(
                             hintText: 'Search records, IDs, names...',
                             hintStyle: TextStyle(
                               color: colorScheme.outline,
                             ),
-                            border: InputBorder.none,
+                    border: InputBorder.none,
                             enabledBorder: InputBorder.none,
                             focusedBorder: InputBorder.none,
                             isDense: true,
                             contentPadding: EdgeInsets.zero,
-                          ),
-                        ),
-                      ),
-                    ],
                   ),
+                ),
+              ),
+            ],
+          ),
                 )
               : const SizedBox.shrink(),
         ),

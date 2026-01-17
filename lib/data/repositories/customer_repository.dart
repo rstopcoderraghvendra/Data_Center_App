@@ -34,33 +34,54 @@ class CustomerRepository {
       },
     );
     log('Fetched customers: $response');
-    // Handle Laravel pagination response
-    final data = response['data'];
-    if (data is List) {
-      return data.cast<Map<String, dynamic>>();
+    // Handle Laravel pagination response structure.
+    if (response.containsKey('data')) {
+      final data = response['data'];
+      if (data is List) {
+        return data
+            .map<Map<String, dynamic>>((item) => item as Map<String, dynamic>)
+            .toList();
+      }
     }
-    // Fallback: if response is directly a list
+    // Fallback: if response is directly a list.
     if (response is List) {
-      return (response as List).cast<Map<String, dynamic>>();
+      return response.cast<Map<String, dynamic>>();
     }
     return [];
   }
 
   Future<Map<String, dynamic>> fetchCustomer(int id) async {
-    return apiClient.getJson('${ApiEndpoints.customers}/$id');
+    final response = await apiClient.getJson('${ApiEndpoints.customers}/$id');
+    // API returns customer directly or wrapped in 'data'
+    if (response.containsKey('data')) {
+      return response['data'] as Map<String, dynamic>;
+    }
+    return response;
   }
 
   Future<Map<String, dynamic>> updateCustomer(
     int id,
     Map<String, dynamic> data,
   ) async {
-    return apiClient.putJson('${ApiEndpoints.customers}/$id', body: data);
+    final response =
+        await apiClient.putJson('${ApiEndpoints.customers}/$id', body: data);
+    // API returns {'message': ..., 'data': ...}
+    if (response.containsKey('data')) {
+      return response['data'] as Map<String, dynamic>;
+    }
+    return response;
   }
 
   Future<Map<String, dynamic>> createCustomer(
     Map<String, dynamic> data,
   ) async {
-    return apiClient.postJson(ApiEndpoints.customers, body: data);
+    final response =
+        await apiClient.postJson(ApiEndpoints.customers, body: data);
+    // API returns {'message': ..., 'data': ...}
+    if (response.containsKey('data')) {
+      return response['data'] as Map<String, dynamic>;
+    }
+    return response;
   }
 
   Future<Map<String, dynamic>> syncUpdates(

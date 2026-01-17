@@ -6,13 +6,64 @@ import '../../../data/repositories/customer_repository.dart';
 import '../../home/widgets/data_table.dart';
 import '../../../core/constants/app_strings.dart';
 
-class SurveyListScreen extends StatelessWidget {
+class SurveyListScreen extends StatefulWidget {
   const SurveyListScreen({super.key});
+
+  @override
+  State<SurveyListScreen> createState() => _SurveyListScreenState();
+}
+
+class _SurveyListScreenState extends State<SurveyListScreen> {
+  late final CustomerRepository _repository;
+  late Future<List<Map<String, dynamic>>> _future;
+  final _scrollController = ScrollController();
+  bool _refreshingBottom = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _repository = CustomerRepository(ApiClient(storage: LocalStorage()));
+    _future = _repository.fetchCustomers(sourceType: 'survey');
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 50) {
+      _refreshFromBottom();
+    }
+  }
+
+  Future<void> _refresh() async {
+    setState(() {
+      _future = _repository.fetchCustomers(sourceType: 'survey');
+    });
+    await _future;
+  }
+
+  Future<void> _refreshFromBottom() async {
+    if (_refreshingBottom) {
+      return;
+    }
+    setState(() => _refreshingBottom = true);
+    try {
+      await _refresh();
+    } finally {
+      if (mounted) {
+        setState(() => _refreshingBottom = false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    final repository = CustomerRepository(ApiClient(storage: LocalStorage()));
 
     return Stack(
       children: [
@@ -41,39 +92,63 @@ class SurveyListScreen extends StatelessWidget {
               ),
               const SizedBox(height: 11),
               Expanded(
-                child: FutureBuilder<List<Map<String, dynamic>>>(
-                  future: repository.fetchCustomers(sourceType: 'survey'),
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Center(child: CircularProgressIndicator());
-                    }
-                    if (snapshot.hasError) {
-                      return Center(
-                        child: Text(snapshot.error.toString()),
+                child: RefreshIndicator(
+                  onRefresh: _refresh,
+                  child: FutureBuilder<List<Map<String, dynamic>>>(
+                    future: _future,
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+                      if (snapshot.hasError) {
+                        return Center(
+                          child: Text(snapshot.error.toString()),
+                        );
+                      }
+                      final data = snapshot.data ?? [];
+                      final rows = data.map((item) {
+                        final status = item['authorization_status']
+                                ?.toString() ??
+                            (item['is_active'] == true ? 'Active' : 'Inactive');
+                        return {
+                          'id': item['id']?.toString() ?? '-',
+                          'name': item['name']?.toString() ?? '-',
+                          'status': status,
+                        };
+                      }).toList();
+                      if (rows.isEmpty) {
+                        return ListView(
+                          controller: _scrollController,
+                          children: const [
+                            SizedBox(height: 120),
+                            Center(child: Text('No records found')),
+                          ],
+                        );
+                      }
+                      return ListView(
+                        controller: _scrollController,
+                        padding: EdgeInsets.zero,
+                        children: [
+                          RecordsTable(
+                            rows: rows,
+                            onEdit: (row) => Navigator.of(context).pushNamed(
+                              RouteNames.surveyEdit,
+                              arguments: {'id': row['id']},
+                            ),
+                            onDelete: (row) {},
+                          ),
+                          if (_refreshingBottom)
+                            const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 12),
+                              child: Center(
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                            ),
+                        ],
                       );
-                    }
-                    final data = snapshot.data ?? [];
-                    final rows = data.map((item) {
-                      final status = item['authorization_status']?.toString() ??
-                          (item['is_active'] == true ? 'Active' : 'Inactive');
-                      return {
-                        'id': item['id']?.toString() ?? '-',
-                        'name': item['name']?.toString() ?? '-',
-                        'status': status,
-                      };
-                    }).toList();
-                    if (rows.isEmpty) {
-                      return const Center(child: Text('No records found'));
-                    }
-                    return RecordsTable(
-                      rows: rows,
-                      onEdit: (row) => Navigator.of(context).pushNamed(
-                        RouteNames.surveyEdit,
-                        arguments: {'id': row['id']},
-                      ),
-                      onDelete: (row) {},
-                    );
-                  },
+                    },
+                  ),
                 ),
               ),
             ],
@@ -83,8 +158,12 @@ class SurveyListScreen extends StatelessWidget {
           left: 16,
           bottom: 16,
           child: FloatingActionButton.extended(
-            onPressed: () =>
-                Navigator.of(context).pushNamed(RouteNames.surveyAdd),
+            onPressed: () async {
+              await Navigator.of(context).pushNamed(RouteNames.surveyAdd);
+              if (mounted) {
+                _refresh();
+              }
+            },
             icon: const Icon(Icons.add),
             label: const Text(AppStrings.addNew),
           ),
