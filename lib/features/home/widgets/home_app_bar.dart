@@ -40,7 +40,8 @@ class HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
       ),
       title: Text(
         companyName,
-        style: const TextStyle(fontWeight: FontWeight.w600),
+        style:
+            const TextStyle(fontWeight: FontWeight.w600, color: Colors.white),
       ),
       actions: [
         IconButton(
