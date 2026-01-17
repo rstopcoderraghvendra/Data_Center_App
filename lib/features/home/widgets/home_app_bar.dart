@@ -5,12 +5,14 @@ class HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String companyName;
   final bool? showSearch;
   final VoidCallback onSearchToggle;
+  final VoidCallback? onLogout;
 
   const HomeAppBar({
     super.key,
     required this.companyName,
     this.showSearch,
     required this.onSearchToggle,
+    this.onLogout,
   });
 
   @override
@@ -45,6 +47,11 @@ class HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
           icon: Icon(isSearchVisible ? Icons.close : Icons.search),
           onPressed: onSearchToggle,
         ),
+        if (onLogout != null)
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: onLogout,
+          ),
         const SizedBox(width: 4),
       ],
       bottom: PreferredSize(
@@ -58,8 +65,8 @@ class HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
               : EdgeInsets.zero,
           child: isSearchVisible
               ? Container(
-          decoration: BoxDecoration(
-            color: colorScheme.surface,
+                  decoration: BoxDecoration(
+                    color: colorScheme.surface,
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
                       color: colorScheme.outlineVariant.withValues(alpha: 0.7),
@@ -71,11 +78,11 @@ class HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
                         offset: const Offset(0, 4),
                       ),
                     ],
-          ),
+                  ),
                   padding:
                       const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                   child: Row(
-            children: [
+                    children: [
                       Container(
                         height: 34,
                         width: 34,
@@ -90,23 +97,23 @@ class HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
                         ),
                       ),
                       const SizedBox(width: 10),
-              Expanded(
-                child: TextField(
-                  decoration: InputDecoration(
+                      Expanded(
+                        child: TextField(
+                          decoration: InputDecoration(
                             hintText: 'Search records, IDs, names...',
                             hintStyle: TextStyle(
                               color: colorScheme.outline,
                             ),
-                    border: InputBorder.none,
+                            border: InputBorder.none,
                             enabledBorder: InputBorder.none,
                             focusedBorder: InputBorder.none,
                             isDense: true,
                             contentPadding: EdgeInsets.zero,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              ),
-            ],
-          ),
                 )
               : const SizedBox.shrink(),
         ),

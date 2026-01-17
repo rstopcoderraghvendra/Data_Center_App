@@ -43,10 +43,6 @@ class CustomerRepository {
             .toList();
       }
     }
-    // Fallback: if response is directly a list.
-    if (response is List) {
-      return response.cast<Map<String, dynamic>>();
-    }
     return [];
   }
 

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:developer';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import '../constants/api_endpoints.dart';
 import '../storage/local_storage.dart';
@@ -19,9 +20,13 @@ class ApiClient {
   }) async {
     final uri = Uri.parse('$baseUrl$path').replace(queryParameters: query);
     log('url: $uri');
-    final headers = await _headers();
-    final response = await http.get(uri, headers: headers);
-    return _handleResponse(response);
+    try {
+      final headers = await _headers();
+      final response = await http.get(uri, headers: headers);
+      return _handleResponse(response);
+    } on SocketException {
+      throw ApiException('Unable to connect to server', 0);
+    }
   }
 
   Future<Map<String, dynamic>> postJson(
@@ -29,13 +34,17 @@ class ApiClient {
     Map<String, dynamic>? body,
   }) async {
     final uri = Uri.parse('$baseUrl$path');
-    final headers = await _headers();
-    final response = await http.post(
-      uri,
-      headers: headers,
-      body: body == null ? null : jsonEncode(body),
-    );
-    return _handleResponse(response);
+    try {
+      final headers = await _headers();
+      final response = await http.post(
+        uri,
+        headers: headers,
+        body: body == null ? null : jsonEncode(body),
+      );
+      return _handleResponse(response);
+    } on SocketException {
+      throw ApiException('Unable to connect to server', 0);
+    }
   }
 
   Future<Map<String, dynamic>> putJson(
@@ -43,13 +52,17 @@ class ApiClient {
     Map<String, dynamic>? body,
   }) async {
     final uri = Uri.parse('$baseUrl$path');
-    final headers = await _headers();
-    final response = await http.put(
-      uri,
-      headers: headers,
-      body: body == null ? null : jsonEncode(body),
-    );
-    return _handleResponse(response);
+    try {
+      final headers = await _headers();
+      final response = await http.put(
+        uri,
+        headers: headers,
+        body: body == null ? null : jsonEncode(body),
+      );
+      return _handleResponse(response);
+    } on SocketException {
+      throw ApiException('Unable to connect to server', 0);
+    }
   }
 
   Future<void> setToken(String token) async {
