@@ -1,5 +1,5 @@
 class ApiEndpoints {
-  //static const baseUrl = 'http://192.168.1.12:8000';
+  // static const baseUrl = 'http://192.168.1.12:8000';
   static const baseUrl = 'http://datacore.expensi.in';
   static const login = '/api/v1/login';
   static const me = '/api/v1/me';

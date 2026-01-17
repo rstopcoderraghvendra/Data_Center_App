@@ -5,12 +5,14 @@ class HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String companyName;
   final bool? showSearch;
   final VoidCallback onSearchToggle;
+  final VoidCallback? onLogout;
 
   const HomeAppBar({
     super.key,
     required this.companyName,
     this.showSearch,
     required this.onSearchToggle,
+    this.onLogout,
   });
 
   @override
@@ -45,6 +47,11 @@ class HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
           icon: Icon(isSearchVisible ? Icons.close : Icons.search),
           onPressed: onSearchToggle,
         ),
+        if (onLogout != null)
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: onLogout,
+          ),
         const SizedBox(width: 4),
       ],
       bottom: PreferredSize(
