@@ -21,11 +21,24 @@ class _HomeScreenState extends State<HomeScreen> {
   final AuthRepository _authRepository =
       AuthRepository(ApiClient(storage: LocalStorage()));
 
+  // Get current screen title based on index
+  String get _currentScreenTitle {
+    switch (_currentIndex) {
+      case 0:
+        return 'Bill Distribution';
+      case 1:
+        return 'Survey Data';
+      default:
+        return 'Data Care';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: HomeAppBar(
         companyName: 'Data Care',
+        screenTitle: _currentScreenTitle, // Pass dynamic title
         showSearch: _showSearch,
         onSearchToggle: () {
           setState(() => _showSearch = !_showSearch);

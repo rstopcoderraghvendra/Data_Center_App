@@ -12,17 +12,17 @@ class PrimaryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final colorScheme = Color(0xFF1976D2);
     return SizedBox(
       width: double.infinity,
       height: 52,
       child: ElevatedButton(
         onPressed: onPressed,
         style: ElevatedButton.styleFrom(
-          backgroundColor: colorScheme.primary,
-          foregroundColor: colorScheme.onPrimary,
+          backgroundColor: colorScheme,
+          foregroundColor: colorScheme,
           elevation: 2,
-          shadowColor: colorScheme.primary.withValues(alpha: 0.35),
+          shadowColor: colorScheme.withValues(alpha: 0.35),
           padding: const EdgeInsets.symmetric(vertical: 14),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
@@ -35,6 +35,7 @@ class PrimaryButton extends StatelessWidget {
         ),
         child: Text(
           label,
+          style: const TextStyle(color: Colors.white),
         ),
       ),
     );

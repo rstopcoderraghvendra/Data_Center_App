@@ -30,6 +30,12 @@ class _SurveyEditScreenState extends State<SurveyEditScreen> {
   bool _saving = false;
   int? _customerId;
 
+  // Custom decent blue colors
+  static const Color primaryBlue = Color(0xFF1976D2); // Material Blue 700
+  static const Color accentBlue = Color(0xFF2196F3); // Material Blue 500
+  static const Color lightBlue = Color(0xFFBBDEFB); // Material Blue 100
+  static const Color darkBlue = Color(0xFF0D47A1); // Material Blue 900
+
   @override
   void dispose() {
     _nameController.dispose();
@@ -90,7 +96,13 @@ class _SurveyEditScreenState extends State<SurveyEditScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString())),
+          SnackBar(
+            content: Text(
+              e.toString(),
+              style: const TextStyle(fontFamily: 'Roboto'),
+            ),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     } finally {
@@ -124,14 +136,26 @@ class _SurveyEditScreenState extends State<SurveyEditScreen> {
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Record updated')),
+          SnackBar(
+            content: const Text(
+              'Record updated successfully',
+              style: TextStyle(fontFamily: 'Roboto'),
+            ),
+            backgroundColor: primaryBlue,
+          ),
         );
         Navigator.of(context).pop(true);
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString())),
+          SnackBar(
+            content: Text(
+              e.toString(),
+              style: const TextStyle(fontFamily: 'Roboto'),
+            ),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     } finally {
@@ -146,254 +170,609 @@ class _SurveyEditScreenState extends State<SurveyEditScreen> {
     return DefaultTabController(
       length: 3,
       child: Scaffold(
+        backgroundColor: const Color(0xFFF8F9FA),
         appBar: AppBar(
-          title: const Text('Edit Survey Data'),
-          bottom: const TabBar(
-            tabs: [
-              Tab(text: 'Basic'),
-              Tab(text: 'Details'),
-              Tab(text: 'Photos'),
-            ],
+          title: const Text(
+            'Edit Survey Data',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+              fontSize: 18,
+              fontFamily: 'Roboto',
+            ),
+          ),
+          centerTitle: true,
+          elevation: 0,
+          backgroundColor: primaryBlue,
+          iconTheme: const IconThemeData(color: Colors.white),
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(48),
+            child: Container(
+              decoration: BoxDecoration(
+                color: primaryBlue,
+                border: Border(
+                  bottom: BorderSide(color: darkBlue, width: 1),
+                ),
+              ),
+              child: TabBar(
+                indicatorColor: Colors.white,
+                indicatorWeight: 3,
+                labelColor: Colors.white,
+                unselectedLabelColor: Colors.white.withOpacity(0.8),
+                labelStyle: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                  fontFamily: 'Roboto',
+                ),
+                unselectedLabelStyle: const TextStyle(
+                  fontSize: 14,
+                  fontFamily: 'Roboto',
+                ),
+                tabs: const [
+                  Tab(
+                    icon: Icon(Icons.person_outline, size: 20),
+                    text: 'Basic Info',
+                  ),
+                  Tab(
+                    icon: Icon(Icons.details_outlined, size: 20),
+                    text: 'Details',
+                  ),
+                  Tab(
+                    icon: Icon(Icons.photo_library_outlined, size: 20),
+                    text: 'Photos',
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
         body: _loading
-            ? const Center(child: CircularProgressIndicator())
+            ? Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const CircularProgressIndicator(
+                      color: primaryBlue,
+                      strokeWidth: 2.5,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Loading survey data...',
+                      style: TextStyle(
+                        color: Colors.grey[600],
+                        fontSize: 16,
+                        fontFamily: 'Roboto',
+                      ),
+                    ),
+                  ],
+                ),
+              )
             : TabBarView(
                 children: [
-                  _buildTabCard(
-                    children: [
-                      TextField(
-                        controller: _nameController,
-                        decoration: const InputDecoration(
-                          labelText: 'Owner Name',
-                          prefixIcon: Icon(Icons.person_outline),
-                          isDense: true,
-                          contentPadding:
-                              EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: _propertyIdController,
-                        decoration: const InputDecoration(
-                          labelText: 'Property Id',
-                          prefixIcon: Icon(Icons.list_alt_outlined),
-                          isDense: true,
-                          contentPadding:
-                              EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: _municipalityController,
-                        decoration: const InputDecoration(
-                          labelText: 'Municipality Name',
-                          prefixIcon: Icon(Icons.location_city_outlined),
-                          isDense: true,
-                          contentPadding:
-                              EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: _integratedPidController,
-                        decoration: const InputDecoration(
-                          labelText: 'Integrated PID Property ID',
-                          prefixIcon: Icon(Icons.badge_outlined),
-                          isDense: true,
-                          contentPadding:
-                              EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: _integratedOwnerController,
-                        decoration: const InputDecoration(
-                          labelText: 'Integrated PID Owner/Occupier Name',
-                          prefixIcon: Icon(Icons.person_pin_outlined),
-                          isDense: true,
-                          contentPadding:
-                              EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: _areaOfAuthorityController,
-                        decoration: const InputDecoration(
-                          labelText: 'Area of Authority',
-                          prefixIcon: Icon(Icons.apartment_outlined),
-                          isDense: true,
-                          contentPadding:
-                              EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: _colonyController,
-                        decoration: const InputDecoration(
-                          labelText: 'Colony Name',
-                          prefixIcon: Icon(Icons.home_work_outlined),
-                          isDense: true,
-                          contentPadding:
-                              EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      PrimaryButton(
-                        label: _saving ? 'Saving...' : 'Save & Continue',
-                        onPressed: _saving ? () {} : _save,
-                      ),
-                    ],
-                  ),
-                  _buildTabCard(
-                    children: [
-                      TextField(
-                        controller: _addressController,
-                        maxLines: 2,
-                        decoration: const InputDecoration(
-                          labelText: 'Address of Property',
-                          prefixIcon: Icon(Icons.home_outlined),
-                          isDense: true,
-                          contentPadding:
-                              EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: _mobileController,
-                        keyboardType: TextInputType.phone,
-                        decoration: const InputDecoration(
-                          labelText: 'Mobile No',
-                          prefixIcon: Icon(Icons.phone_outlined),
-                          isDense: true,
-                          contentPadding:
-                              EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: _categoryController,
-                        decoration: const InputDecoration(
-                          labelText: 'Category',
-                          prefixIcon: Icon(Icons.category_outlined),
-                          isDense: true,
-                          contentPadding:
-                              EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: _totalAreaController,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'Total Area',
-                          prefixIcon: Icon(Icons.square_foot_outlined),
-                          isDense: true,
-                          contentPadding:
-                              EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: _unitController,
-                        decoration: const InputDecoration(
-                          labelText: 'Unit',
-                          prefixIcon: Icon(Icons.straighten_outlined),
-                          isDense: true,
-                          contentPadding:
-                              EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: _authorizationStatusController,
-                        decoration: const InputDecoration(
-                          labelText:
-                              'Authorization Status (approved/unapproved)',
-                          prefixIcon: Icon(Icons.verified_outlined),
-                          isDense: true,
-                          contentPadding:
-                              EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      PrimaryButton(
-                        label: _saving ? 'Saving...' : 'Save & Continue',
-                        onPressed: _saving ? () {} : _save,
-                      ),
-                    ],
-                  ),
-                  _buildTabCard(
-                    children: [
-                      _buildPhotoTile(
-                        title: 'Upload Photo 1',
-                        subtitle: 'Front view of property',
-                      ),
-                      const SizedBox(height: 12),
-                      _buildPhotoTile(
-                        title: 'Upload Photo 2',
-                        subtitle: 'Side view of property',
-                      ),
-                      const SizedBox(height: 12),
-                      _buildPhotoTile(
-                        title: 'Upload Photo 3',
-                        subtitle: 'Additional view',
-                      ),
-                      const SizedBox(height: 20),
-                      PrimaryButton(
-                        label: _saving ? 'Saving...' : 'Save',
-                        onPressed: _saving ? () {} : _save,
-                      ),
-                    ],
-                  ),
+                  _buildBasicTab(),
+                  _buildDetailsTab(),
+                  _buildPhotosTab(),
                 ],
               ),
       ),
     );
   }
 
-  Widget _buildTabCard({required List<Widget> children}) {
+  Widget _buildBasicTab() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(children: children),
+      child: Column(
+        children: [
+          _buildSectionCard(
+            title: 'Owner Information',
+            icon: Icons.person_outline,
+            children: [
+              _buildTextField(
+                controller: _nameController,
+                label: 'Owner Name',
+                icon: Icons.person_outline,
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _buildSectionCard(
+            title: 'Property Details',
+            icon: Icons.home_outlined,
+            children: [
+              _buildTextField(
+                controller: _propertyIdController,
+                label: 'Property ID',
+                icon: Icons.numbers_outlined,
+              ),
+              const SizedBox(height: 12),
+              _buildTextField(
+                controller: _municipalityController,
+                label: 'Municipality Name',
+                icon: Icons.location_city_outlined,
+              ),
+              const SizedBox(height: 12),
+              _buildTextField(
+                controller: _integratedPidController,
+                label: 'Integrated PID Property ID',
+                icon: Icons.qr_code_outlined,
+              ),
+              const SizedBox(height: 12),
+              _buildTextField(
+                controller: _integratedOwnerController,
+                label: 'Integrated PID Owner/Occupier Name',
+                icon: Icons.badge_outlined,
+              ),
+              const SizedBox(height: 12),
+              _buildTextField(
+                controller: _areaOfAuthorityController,
+                label: 'Area of Authority',
+                icon: Icons.apartment_outlined,
+              ),
+              const SizedBox(height: 12),
+              _buildTextField(
+                controller: _colonyController,
+                label: 'Colony Name',
+                icon: Icons.map_outlined,
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          _saving
+              ? Container(
+                  width: double.infinity,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    color: primaryBlue,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: const Center(
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      color: Colors.white,
+                    ),
+                  ),
+                )
+              : PrimaryButton(
+                  label: 'Save & Continue',
+                  onPressed: () => _save(),
+                ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailsTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        children: [
+          _buildSectionCard(
+            title: 'Location Details',
+            icon: Icons.location_on_outlined,
+            children: [
+              _buildTextField(
+                controller: _addressController,
+                label: 'Address of Property',
+                icon: Icons.home_outlined,
+                maxLines: 3,
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _buildSectionCard(
+            title: 'Contact Information',
+            icon: Icons.contact_phone_outlined,
+            children: [
+              _buildTextField(
+                controller: _mobileController,
+                label: 'Mobile Number',
+                icon: Icons.phone_outlined,
+                keyboardType: TextInputType.phone,
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _buildSectionCard(
+            title: 'Property Specifications',
+            icon: Icons.category_outlined,
+            children: [
+              _buildTextField(
+                controller: _categoryController,
+                label: 'Category',
+                icon: Icons.category_outlined,
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    flex: 3,
+                    child: _buildTextField(
+                      controller: _totalAreaController,
+                      label: 'Total Area',
+                      icon: Icons.square_foot_outlined,
+                      keyboardType: TextInputType.number,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    flex: 2,
+                    child: _buildTextField(
+                      controller: _unitController,
+                      label: 'Unit',
+                      icon: Icons.straighten_outlined,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              _buildTextField(
+                controller: _authorizationStatusController,
+                label: 'Authorization Status',
+                icon: Icons.verified_outlined,
+                hintText: 'approved/unapproved',
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          _saving
+              ? Container(
+                  width: double.infinity,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    color: primaryBlue,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: const Center(
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      color: Colors.white,
+                    ),
+                  ),
+                )
+              : PrimaryButton(
+                  label: 'Save & Continue',
+                  onPressed: () => _save(),
+                ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPhotosTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        children: [
+          Card(
+            elevation: 0,
+            color: lightBlue,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(color: primaryBlue.withOpacity(0.2)),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                children: [
+                  const Icon(
+                    Icons.photo_library_outlined,
+                    size: 40,
+                    color: primaryBlue,
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Property Photos',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: primaryBlue,
+                      fontFamily: 'Roboto',
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Upload clear photos from different angles',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                      fontSize: 14,
+                      fontFamily: 'Roboto',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+          _buildPhotoUploadCard(
+            title: 'Front View',
+            description: 'Clear photo showing the front of the property',
+            icon: Icons.home_outlined,
+          ),
+          const SizedBox(height: 16),
+          _buildPhotoUploadCard(
+            title: 'Side View',
+            description: 'Photo showing the side/angle view',
+            icon: Icons.aspect_ratio_outlined,
+          ),
+          const SizedBox(height: 16),
+          _buildPhotoUploadCard(
+            title: 'Additional View',
+            description: 'Any additional important view',
+            icon: Icons.add_photo_alternate_outlined,
+          ),
+          const SizedBox(height: 16),
+          _buildPhotoUploadCard(
+            title: 'Location View',
+            description: 'Photo showing property in surrounding area',
+            icon: Icons.location_on_outlined,
+          ),
+          const SizedBox(height: 32),
+          Row(
+            children: [
+              Expanded(
+                child: SizedBox(
+                  height: 52,
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Colors.grey),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    child: const Text(
+                      'Cancel',
+                      style: TextStyle(
+                        color: Colors.grey,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 16,
+                        fontFamily: 'Roboto',
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _saving
+                    ? Container(
+                        height: 52,
+                        decoration: BoxDecoration(
+                          color: primaryBlue,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: const Center(
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.5,
+                            color: Colors.white,
+                          ),
+                        ),
+                      )
+                    : PrimaryButton(
+                        label: 'Save All Changes',
+                        onPressed: () => _save(),
+                      ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionCard({
+    required String title,
+    required IconData icon,
+    required List<Widget> children,
+  }) {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      color: Colors.white,
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: lightBlue,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(icon, size: 20, color: primaryBlue),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF333333),
+                    fontFamily: 'Roboto',
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            ...children,
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildPhotoTile({required String title, required String subtitle}) {
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    int maxLines = 1,
+    TextInputType? keyboardType,
+    String? hintText,
+  }) {
+    return TextField(
+      controller: controller,
+      maxLines: maxLines,
+      keyboardType: keyboardType,
+      style: const TextStyle(
+        fontSize: 16,
+        color: Color(0xFF333333),
+        fontFamily: 'Roboto',
+      ),
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hintText,
+        prefixIcon: Icon(icon, size: 20, color: primaryBlue),
+        filled: true,
+        fillColor: const Color(0xFFF8F9FA),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey[300]!),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey[300]!),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(
+            color: primaryBlue,
+            width: 2,
+          ),
+        ),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
+        labelStyle: const TextStyle(
+          color: Color(0xFF666666),
+          fontSize: 14,
+          fontFamily: 'Roboto',
+        ),
+        hintStyle: const TextStyle(
+          color: Color(0xFF999999),
+          fontSize: 14,
+          fontFamily: 'Roboto',
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPhotoUploadCard({
+    required String title,
+    required String description,
+    required IconData icon,
+  }) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
+        color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+        border: Border.all(color: Colors.grey[300]!),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
-      child: Row(
+      child: Column(
         children: [
-          const Icon(Icons.photo_camera_outlined),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title,
-                    style: const TextStyle(fontWeight: FontWeight.w600)),
-                const SizedBox(height: 4),
-                Text(
-                  subtitle,
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.outline,
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: lightBlue,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon, size: 20, color: primaryBlue),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF333333),
+                        fontFamily: 'Roboto',
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      description,
+                      style: const TextStyle(
+                        color: Color(0xFF666666),
+                        fontSize: 13,
+                        fontFamily: 'Roboto',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: SizedBox(
+                  height: 44,
+                  child: OutlinedButton.icon(
+                    onPressed: () {},
+                    icon: const Icon(Icons.camera_alt_outlined,
+                        size: 18, color: primaryBlue),
+                    label: const Text(
+                      'Take Photo',
+                      style: TextStyle(
+                        color: primaryBlue,
+                        fontFamily: 'Roboto',
+                      ),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: primaryBlue),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
                   ),
                 ),
-              ],
-            ),
-          ),
-          TextButton(
-            onPressed: () {},
-            child: const Text('Upload'),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: SizedBox(
+                  height: 44,
+                  child: ElevatedButton.icon(
+                    onPressed: () {},
+                    icon: const Icon(Icons.upload_outlined,
+                        size: 18, color: Colors.white),
+                    label: const Text(
+                      'Upload',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontFamily: 'Roboto',
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: primaryBlue,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),

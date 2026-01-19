@@ -6,6 +6,7 @@ class HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
   final bool? showSearch;
   final VoidCallback onSearchToggle;
   final VoidCallback? onLogout;
+  final String screenTitle;
 
   const HomeAppBar({
     super.key,
@@ -13,6 +14,7 @@ class HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.showSearch,
     required this.onSearchToggle,
     this.onLogout,
+    required this.screenTitle,
   });
 
   @override
@@ -94,24 +96,39 @@ class HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
             ),
           ),
         ),
-        title: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Text(
-            companyName,
-            style: const TextStyle(
-              fontSize: 19,
-              fontWeight: FontWeight.w700,
-              color: Colors.white,
-              letterSpacing: 0.8,
-              shadows: [
-                Shadow(
-                  color: Colors.black26,
-                  offset: Offset(0, 1),
-                  blurRadius: 3,
-                ),
-              ],
+        title: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // Original company name
+            Text(
+              companyName,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: Colors.white.withOpacity(0.9),
+                letterSpacing: 0.5,
+              ),
             ),
-          ),
+            const SizedBox(height: 2),
+            // New screen title (dynamic)
+            Text(
+              screenTitle,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+                letterSpacing: 0.8,
+                shadows: [
+                  Shadow(
+                    color: Colors.black26,
+                    offset: Offset(0, 1),
+                    blurRadius: 3,
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
         actions: [
           Container(
@@ -189,7 +206,6 @@ class HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
               ),
             ),
         ],
-        // ✅ SEARCH PART - EXACTLY SAME AS BEFORE (NO CHANGES)
         bottom: PreferredSize(
           preferredSize: Size.fromHeight(isSearchVisible ? 64 : 0),
           child: AnimatedContainer(
