@@ -12,6 +12,7 @@ dependencies:
   http: ^1.2.2
   shared_preferences: ^2.3.2
   connectivity_plus: ^7.0.0
+  google_fonts: ^7.0.2
   # animated_bottom_navigation_bar: ^1.4.0
 
 dev_dependencies:

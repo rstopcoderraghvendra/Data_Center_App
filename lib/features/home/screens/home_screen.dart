@@ -1,62 +1,643 @@
-import 'package:data_care_app/app/routes/route_names.dart';
-import 'package:data_care_app/core/network/api_client.dart';
-import 'package:data_care_app/core/storage/local_storage.dart';
-import 'package:data_care_app/data/repositories/auth_repository.dart';
+import 'package:data_care_app/features/auth/screens/login_screen.dart';
+import 'package:data_care_app/features/home/screens/project_detail_screen.dart';
+import 'package:data_care_app/features/model/model.dart';
 import 'package:flutter/material.dart';
-import '../widgets/home_app_bar.dart';
-import '../widgets/bottom_tabs.dart';
-import '../../bill_distribution/screens/bill_list_screen.dart';
-import '../../survey_data/screens/survey_list_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  const HomeScreen({Key? key}) : super(key: key);
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  int _currentIndex = 0;
-  bool _showSearch = false;
-  final AuthRepository _authRepository =
-      AuthRepository(ApiClient(storage: LocalStorage()));
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  List<Project> projects = [
+    Project(
+      id: 'PRJ001',
+      name: 'Green Valley Apartments',
+      address: '123 Park Street, Sector 12',
+      city: 'Mumbai',
+    ),
+    Project(
+      id: 'PRJ002',
+      name: 'Skyline Towers',
+      address: '456 Marine Drive, Bandra West',
+      city: 'Mumbai',
+    ),
+    Project(
+      id: 'PRJ003',
+      name: 'Sunrise Complex',
+      address: '789 MG Road, Whitefield',
+      city: 'Bangalore',
+    ),
+    Project(
+      id: 'PRJ004',
+      name: 'Royal Residency',
+      address: '321 Nehru Place, Connaught Place',
+      city: 'Delhi',
+    ),
+    Project(
+      id: 'PRJ004',
+      name: 'Royal Residency',
+      address: '321 Nehru Place, Connaught Place',
+      city: 'Delhi',
+    ),
+    Project(
+      id: 'PRJ003',
+      name: 'Sunrise Complex',
+      address: '789 MG Road, Whitefield',
+      city: 'Bangalore',
+    ),
+    Project(
+      id: 'PRJ001',
+      name: 'Green Valley Apartments',
+      address: '123 Park Street, Sector 12',
+      city: 'Mumbai',
+    ),
+    Project(
+      id: 'PRJ002',
+      name: 'Skyline Towers',
+      address: '456 Marine Drive, Bandra West',
+      city: 'Mumbai',
+    ),
+  ];
 
-  // Get current screen title based on index
-  String get _currentScreenTitle {
-    switch (_currentIndex) {
-      case 0:
-        return 'Bill Distribution';
-      case 1:
-        return 'Survey Data';
-      default:
-        return 'Data Care';
-    }
+  void _createProject() {
+    showDialog(
+      context: context,
+      builder: (context) => CreateProjectDialog(
+        onAdd: (project) {
+          setState(() {
+            projects.add(project);
+          });
+        },
+      ),
+    );
+  }
+
+  void _logout() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: const Text(
+          'Logout',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+        ),
+        content: const Text(
+          'Are you sure you want to logout?',
+          style: TextStyle(fontSize: 13, color: Color(0xFF4A5568)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(fontSize: 13, color: Color(0xFF718096)),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => const LoginScreen()),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFFC8181),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(6),
+              ),
+            ),
+            child: const Text(
+              'Logout',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: HomeAppBar(
-        companyName: 'Data Care',
-        screenTitle: _currentScreenTitle, // Pass dynamic title
-        showSearch: _showSearch,
-        onSearchToggle: () {
-          setState(() => _showSearch = !_showSearch);
-        },
-      ),
-      body: IndexedStack(
-        index: _currentIndex,
-        children: const [
-          BillListScreen(),
-          SurveyListScreen(),
+      key: _scaffoldKey,
+      backgroundColor: const Color(0xFFF7FAFC),
+      appBar: AppBar(
+        elevation: 0,
+        backgroundColor: Colors.white,
+        leading: Padding(
+          padding: const EdgeInsets.all(10),
+          child: GestureDetector(
+            onTap: () {
+              _scaffoldKey.currentState?.openDrawer();
+            },
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF667eea), Color(0xFF764ba2)],
+                ),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                Icons.person,
+                color: Colors.white,
+                size: 18,
+              ),
+            ),
+          ),
+        ),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: const [
+            Icon(Icons.storage_rounded, color: Color(0xFF667eea), size: 20),
+            SizedBox(width: 6),
+            Text(
+              'Data-Core',
+              style: TextStyle(
+                color: Color(0xFF2D3748),
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(
+              Icons.logout_rounded,
+              color: Color(0xFFFC8181),
+              size: 20,
+            ),
+            onPressed: _logout,
+          ),
         ],
       ),
-      bottomNavigationBar: BottomTabs(
-        currentIndex: _currentIndex,
-        onChanged: (index) {
-          setState(() => _currentIndex = index);
-        },
+      drawer: _buildDrawer(),
+      body: Column(
+        children: [
+          // Top Action Buttons
+          Container(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                Expanded(child: Container()),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _buildTopButton(
+                    'Create',
+                    Icons.add_circle_outline,
+                    const Color(0xFF48BB78),
+                    _createProject,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Projects GridView
+          Expanded(
+            child: projects.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEDF2F7),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: const Icon(
+                            Icons.folder_open_rounded,
+                            size: 60,
+                            color: Color(0xFFA0AEC0),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'No Projects Yet',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF4A5568),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        const Text(
+                          'Click "Create" to add your first project',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF718096),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : GridView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      crossAxisSpacing: 8,
+                      mainAxisSpacing: 8,
+                      childAspectRatio: 1.20,
+                    ),
+                    itemCount: projects.length,
+                    itemBuilder: (context, index) {
+                      return _buildProjectCard(projects[index]);
+                    },
+                  ),
+          ),
+        ],
       ),
+    );
+  }
+
+  Widget _buildTopButton(
+    String label,
+    IconData icon,
+    Color color,
+    VoidCallback onTap,
+  ) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: color.withOpacity(0.15),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            child: Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(icon, color: color, size: 24),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: color,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProjectCard(Project project) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 12,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => ProjectDetailScreen(project: project),
+              ),
+            );
+          },
+          borderRadius: BorderRadius.circular(14),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // Project Name
+                Text(
+                  project.name,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF2D3748),
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 10),
+
+                // Address
+                _buildInfoRow(Icons.location_on_rounded, project.address,
+                    maxLines: 2),
+                const SizedBox(height: 6),
+
+                // City
+                _buildInfoRow(Icons.location_city_rounded, project.city),
+                const SizedBox(height: 6),
+
+                // Phone
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(IconData icon, String text, {int maxLines = 1}) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            color: const Color(0xFFEDF2F7),
+            borderRadius: BorderRadius.circular(5),
+          ),
+          child: Icon(icon, size: 12, color: const Color(0xFF667eea)),
+        ),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            text,
+            style: const TextStyle(
+              fontSize: 10,
+              color: Color(0xFF4A5568),
+              fontWeight: FontWeight.w500,
+            ),
+            maxLines: maxLines,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDrawer() {
+    return Drawer(
+      child: Column(
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(20, 50, 20, 20),
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFF667eea), Color(0xFF764ba2)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(40),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 8,
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.person,
+                    size: 32,
+                    color: Color(0xFF667eea),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                const Text(
+                  'John Doe',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: const Text(
+                    'john.doe@example.com',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              children: [
+                _buildDrawerItem(Icons.dashboard_rounded, 'Dashboard', true),
+                _buildDrawerItem(Icons.folder_rounded, 'Projects', false),
+                _buildDrawerItem(Icons.analytics_rounded, 'Reports', false),
+                _buildDrawerItem(Icons.people_rounded, 'Team', false),
+                const Divider(height: 20, thickness: 1),
+                _buildDrawerItem(Icons.settings_rounded, 'Settings', false),
+                _buildDrawerItem(Icons.help_rounded, 'Help & Support', false),
+                _buildDrawerItem(Icons.info_rounded, 'About', false),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDrawerItem(IconData icon, String title, bool selected) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+      decoration: BoxDecoration(
+        color: selected
+            ? const Color(0xFF667eea).withOpacity(0.1)
+            : Colors.transparent,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: ListTile(
+        dense: true,
+        leading: Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: selected ? const Color(0xFF667eea) : Colors.transparent,
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Icon(
+            icon,
+            size: 18,
+            color: selected ? Colors.white : const Color(0xFF718096),
+          ),
+        ),
+        title: Text(
+          title,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+            color: selected ? const Color(0xFF667eea) : const Color(0xFF4A5568),
+          ),
+        ),
+        onTap: () {},
+      ),
+    );
+  }
+}
+
+// Create Project Dialog
+class CreateProjectDialog extends StatefulWidget {
+  final Function(Project) onAdd;
+
+  const CreateProjectDialog({Key? key, required this.onAdd}) : super(key: key);
+
+  @override
+  State<CreateProjectDialog> createState() => _CreateProjectDialogState();
+}
+
+class _CreateProjectDialogState extends State<CreateProjectDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
+  final _addressController = TextEditingController();
+  final _cityController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _emailController = TextEditingController();
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: Row(
+        children: const [
+          Icon(Icons.add_circle, color: Color(0xFF667eea), size: 22),
+          SizedBox(width: 8),
+          Text(
+            'Create New Project',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+          ),
+        ],
+      ),
+      content: Form(
+        key: _formKey,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildTextField(
+                  _nameController, 'Project Name', Icons.folder_rounded),
+              const SizedBox(height: 12),
+              _buildTextField(
+                  _addressController, 'Address', Icons.location_on_rounded),
+              const SizedBox(height: 12),
+              _buildTextField(
+                  _cityController, 'City', Icons.location_city_rounded),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text(
+            'Cancel',
+            style: TextStyle(fontSize: 13, color: Color(0xFF718096)),
+          ),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            if (_formKey.currentState!.validate()) {
+              widget.onAdd(Project(
+                id: 'PRJ${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}',
+                name: _nameController.text,
+                address: _addressController.text,
+                city: _cityController.text,
+              ));
+              Navigator.pop(context);
+            }
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF667eea),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+          ),
+          child: const Text(
+            'Create',
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTextField(
+    TextEditingController controller,
+    String label,
+    IconData icon,
+  ) {
+    return TextFormField(
+      controller: controller,
+      style: const TextStyle(fontSize: 13),
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: const TextStyle(fontSize: 12),
+        prefixIcon: Icon(icon, size: 18, color: const Color(0xFF667eea)),
+        filled: true,
+        fillColor: const Color(0xFFF7FAFC),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: Color(0xFF667eea), width: 1.5),
+        ),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      ),
+      validator: (value) =>
+          value?.isEmpty ?? true ? 'This field is required' : null,
     );
   }
 }

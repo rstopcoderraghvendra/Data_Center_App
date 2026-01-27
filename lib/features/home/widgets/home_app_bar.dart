@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../../app/routes/route_names.dart';
 
 class HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
@@ -108,17 +109,19 @@ class HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
                 fontWeight: FontWeight.w500,
                 color: Colors.white.withOpacity(0.9),
                 letterSpacing: 0.5,
+                fontFamily: GoogleFonts.inter().fontFamily,
               ),
             ),
             const SizedBox(height: 2),
             // New screen title (dynamic)
             Text(
               screenTitle,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
                 color: Colors.white,
                 letterSpacing: 0.8,
+                fontFamily: GoogleFonts.inter().fontFamily,
                 shadows: [
                   Shadow(
                     color: Colors.black26,

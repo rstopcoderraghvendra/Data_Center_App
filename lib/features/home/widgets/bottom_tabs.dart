@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../../core/constants/app_strings.dart';
 
 class BottomTabs extends StatelessWidget {
@@ -82,7 +83,7 @@ class BottomTabs extends StatelessWidget {
                               style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
-                                fontFamily: 'Nunito',
+                                fontFamily: GoogleFonts.inter().fontFamily,
                                 color: currentIndex == 0
                                     ? Colors.blue.shade700
                                     : Colors.grey.shade600,
@@ -148,7 +149,7 @@ class BottomTabs extends StatelessWidget {
                               style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
-                                fontFamily: 'Nunito',
+                                fontFamily: GoogleFonts.inter().fontFamily,
                                 color: currentIndex == 1
                                     ? Colors.blue.shade700
                                     : Colors.grey.shade600,
