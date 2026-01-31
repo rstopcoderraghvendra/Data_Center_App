@@ -42,8 +42,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _controllers = {
       for (var field in _fields) field.key: TextEditingController(),
     };
-    // Add controllers for bill and survey entries separately
-    // since they're not in _fields list anymore
     _controllers['bill_distribution_entery_count'] = TextEditingController();
     _controllers['survey_data_entery_count'] = TextEditingController();
     _loadProfile();
@@ -61,16 +59,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Logout'),
-        content: const Text('Are you sure you want to logout?'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: const Text(
+          'Logout',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+        ),
+        content: const Text(
+          'Are you sure you want to logout?',
+          style: TextStyle(fontSize: 13, color: Color(0xFF4A5568)),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(fontSize: 13, color: Color(0xFF718096)),
+            ),
           ),
-          TextButton(
+          ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Logout'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFFC8181),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(6),
+              ),
+            ),
+            child: const Text(
+              'Logout',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+            ),
           ),
         ],
       ),
@@ -78,8 +95,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     if (confirmed == true) {
       await _authRepository.logout();
-
-      // Navigate to login screen and clear all previous routes
       Navigator.of(context).pushNamedAndRemoveUntil(
         RouteNames.login,
         (route) => false,
@@ -101,7 +116,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _controllers['pin_code']?.text = data['pin_code']?.toString() ?? '';
         _controllers['date_of_joining']?.text =
             data['date_of_joining']?.toString() ?? '';
-        // Keep these for header display
         _controllers['bill_distribution_entery_count']?.text =
             data['bill_distribution_entery_count']?.toString() ?? '0';
         _controllers['survey_data_entery_count']?.text =
@@ -149,80 +163,80 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   void _showMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
+      SnackBar(
+        content: Text(message),
+        backgroundColor: const Color(0xFF667eea),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
     );
   }
 
   Widget _buildProfileHeader() {
     return Container(
-      color: Colors.blue[700],
-      padding: const EdgeInsets.fromLTRB(16, 40, 16, 16),
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFF667eea), Color(0xFF764ba2)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.arrow_back, color: Colors.white),
-                onPressed: () => Navigator.pop(context),
-              ),
-              const Spacer(),
-              const Text(
-                'Profile',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(40),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 8,
                 ),
-              ),
-              const Spacer(),
-              IconButton(
-                icon: Icon(
-                  _isEditing ? Icons.check : Icons.edit,
-                  color: Colors.white,
-                ),
-                onPressed: () {
-                  if (_isEditing) {
-                    _saveProfile();
-                  } else {
-                    setState(() => _isEditing = true);
-                  }
-                },
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          CircleAvatar(
-            radius: 40,
-            backgroundColor: Colors.white,
-            child: Icon(
+              ],
+            ),
+            child: const Icon(
               Icons.person,
-              size: 50,
-              color: Colors.blue[700],
+              size: 32,
+              color: Color(0xFF667eea),
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 14),
           Text(
             _controllers['name']!.text,
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
             ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            _controllers['email']!.text,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 14,
+          const SizedBox(height: 5),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Text(
+              _controllers['email']!.text,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 15),
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -283,34 +297,47 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final value = controller.text.trim();
 
     if (_isEditing && !field.alwaysReadOnly) {
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              field.label,
-              style: const TextStyle(
-                fontSize: 13,
-                color: Colors.grey,
-                fontWeight: FontWeight.w500,
-              ),
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            field.label,
+            style: const TextStyle(
+              fontSize: 12,
+              color: Color(0xFF4A5568),
+              fontWeight: FontWeight.w600,
             ),
-            const SizedBox(height: 4),
-            TextField(
-              controller: controller,
-              maxLines: field.maxLines,
-              keyboardType: field.keyboard,
-              decoration: InputDecoration(
-                prefixIcon: Icon(field.icon, size: 20),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: Colors.grey),
-                ),
+          ),
+          const SizedBox(height: 6),
+          TextField(
+            controller: controller,
+            maxLines: field.maxLines,
+            keyboardType: field.keyboard,
+            style: const TextStyle(fontSize: 13),
+            decoration: InputDecoration(
+              filled: true,
+              fillColor: const Color(0xFFF7FAFC),
+              prefixIcon:
+                  Icon(field.icon, size: 18, color: const Color(0xFF667eea)),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide.none,
               ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide:
+                    const BorderSide(color: Color(0xFF667eea), width: 1.5),
+              ),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 16),
+        ],
       );
     }
 
@@ -323,12 +350,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border.all(color: Colors.grey[300]!),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Row(
         children: [
-          Icon(field.icon, color: Colors.grey[700], size: 18),
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: const Color(0xFFEDF2F7),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Icon(field.icon, size: 14, color: const Color(0xFF667eea)),
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -336,17 +376,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
               children: [
                 Text(
                   field.label,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 11,
-                    color: Colors.grey[600],
+                    color: Color(0xFF718096),
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 4),
                 Text(
                   value,
                   style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF2D3748),
                   ),
                   maxLines: field.maxLines,
                 ),
@@ -355,16 +397,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           if (field.alwaysReadOnly)
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: Colors.grey[100],
-                borderRadius: BorderRadius.circular(4),
+                color: const Color(0xFFEDF2F7),
+                borderRadius: BorderRadius.circular(6),
               ),
-              child: const Text(
+              child: Text(
                 'Read Only',
                 style: TextStyle(
                   fontSize: 10,
-                  color: Colors.grey,
+                  color: Colors.grey[600],
                 ),
               ),
             ),
@@ -377,132 +419,170 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget build(BuildContext context) {
     if (_loading) {
       return Scaffold(
+        backgroundColor: const Color(0xFFF7FAFC),
         body: Center(
-          child: CircularProgressIndicator(color: Colors.blue[700]),
+          child: CircularProgressIndicator(color: const Color(0xFF667eea)),
         ),
       );
     }
 
     return Scaffold(
+      backgroundColor: const Color(0xFFF7FAFC),
       body: CustomScrollView(
         slivers: [
-          // SliverAppBar with flexible space for header
+          // App Bar with Gradient Background
           SliverAppBar(
-            backgroundColor: Colors.blue[700],
-            expandedHeight: 300, // Adjust this height as needed
+            backgroundColor: const Color(0xFF667eea),
+            expandedHeight: 280,
             floating: false,
             pinned: true,
             flexibleSpace: FlexibleSpaceBar(
               background: Container(
-                color: Colors.blue[700],
-                padding: const EdgeInsets.fromLTRB(16, 40, 16, 16),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    CircleAvatar(
-                      radius: 40,
-                      backgroundColor: Colors.white,
-                      child: Icon(
-                        Icons.person,
-                        size: 50,
-                        color: Colors.blue[700],
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Color(0xFF667eea), Color(0xFF764ba2)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                ),
+                child: SafeArea(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(40),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 8,
+                            ),
+                          ],
+                        ),
+                        child: const Icon(
+                          Icons.person,
+                          size: 32,
+                          color: Color(0xFF667eea),
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      _controllers['name']!.text,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
+                      const SizedBox(height: 14),
+                      Text(
+                        _controllers['name']!.text,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      _controllers['email']!.text,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          Column(
-                            children: [
-                              Text(
-                                _controllers['bill_distribution_entery_count']!
-                                    .text,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const Text(
-                                'Bill Entries',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ],
+                      const SizedBox(height: 5),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Text(
+                          _controllers['email']!.text,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
                           ),
-                          Container(
-                            width: 1,
-                            height: 30,
-                            color: Colors.white.withOpacity(0.3),
-                          ),
-                          Column(
-                            children: [
-                              Text(
-                                _controllers['survey_data_entery_count']!.text,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const Text(
-                                'Survey Entries',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
+                        ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 15),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            Column(
+                              children: [
+                                Text(
+                                  _controllers[
+                                          'bill_distribution_entery_count']!
+                                      .text,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const Text(
+                                  'Bill Entries',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Container(
+                              width: 1,
+                              height: 30,
+                              color: Colors.white.withOpacity(0.3),
+                            ),
+                            Column(
+                              children: [
+                                Text(
+                                  _controllers['survey_data_entery_count']!
+                                      .text,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const Text(
+                                  'Survey Entries',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+                  ),
                 ),
               ),
             ),
             leading: IconButton(
-              icon: const Icon(Icons.arrow_back, color: Colors.white),
+              icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
               onPressed: () => Navigator.pop(context),
             ),
             title: const Text(
               'Profile',
               style: TextStyle(
                 color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
               ),
             ),
             actions: [
               IconButton(
-                icon: Icon(
-                  _isEditing ? Icons.check : Icons.edit,
-                  color: Colors.white,
+                icon: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    _isEditing ? Icons.check_rounded : Icons.edit_rounded,
+                    color: Colors.white,
+                    size: 20,
+                  ),
                 ),
                 onPressed: () {
                   if (_isEditing) {
@@ -520,78 +600,225 @@ class _ProfileScreenState extends State<ProfileScreen> {
             padding: const EdgeInsets.all(16),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
+                // Profile Fields
                 ..._fields.map((field) => _buildFieldItem(field)),
+
+                // Action Buttons when editing
                 if (_isEditing) ...[
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: _saving ? null : _saveProfile,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue[700],
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                      child: _saving
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Text('Save Changes'),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton(
-                      onPressed: () => setState(() => _isEditing = false),
-                      child: const Text('Cancel'),
-                    ),
-                  ),
-                ],
-                if (!_isEditing) ...[
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 20),
                   Container(
-                    padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.grey[50],
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.grey[300]!),
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
                     ),
                     child: Column(
                       children: [
-                        ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          leading: Icon(Icons.lock, color: Colors.blue[700]),
-                          title: const Text('Change Password'),
-                          trailing: Icon(Icons.chevron_right,
-                              color: Colors.grey[600]),
-                          onTap: () {
-                            Navigator.pushNamed(
-                                context, RouteNames.changePassword);
-                          },
-                        ),
-                        Divider(color: Colors.grey[300]),
-                        ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          leading: Icon(Icons.logout, color: Colors.red[400]),
-                          title: Text(
-                            'Logout',
-                            style: TextStyle(color: Colors.red[400]),
+                        // Save Button
+                        Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFF667eea), Color(0xFF764ba2)],
+                            ),
                           ),
-                          trailing: Icon(Icons.chevron_right,
-                              color: Colors.grey[600]),
-                          onTap: () {
-                            _logout(context);
-                          },
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: _saving ? null : _saveProfile,
+                              borderRadius: BorderRadius.circular(12),
+                              child: Container(
+                                width: double.infinity,
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 14),
+                                child: Center(
+                                  child: _saving
+                                      ? const SizedBox(
+                                          width: 20,
+                                          height: 20,
+                                          child: CircularProgressIndicator(
+                                            color: Colors.white,
+                                            strokeWidth: 2,
+                                          ),
+                                        )
+                                      : const Text(
+                                          'Save Changes',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        // Cancel Button
+                        Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: () => setState(() => _isEditing = false),
+                            borderRadius: const BorderRadius.only(
+                              bottomLeft: Radius.circular(12),
+                              bottomRight: Radius.circular(12),
+                            ),
+                            child: Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              decoration: BoxDecoration(
+                                border: Border(
+                                  top: BorderSide(color: Colors.grey[300]!),
+                                ),
+                              ),
+                              child: const Center(
+                                child: Text(
+                                  'Cancel',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF718096),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
                         ),
                       ],
                     ),
                   ),
                 ],
-                const SizedBox(height: 20),
+
+                // Profile Actions when not editing
+                if (!_isEditing) ...[
+                  const SizedBox(height: 20),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        // Change Password
+                        Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: () {
+                              Navigator.pushNamed(
+                                context,
+                                RouteNames.changePassword,
+                              );
+                            },
+                            borderRadius: BorderRadius.circular(8),
+                            child: Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFEDF2F7),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(6),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF667eea),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: const Icon(
+                                      Icons.lock_rounded,
+                                      color: Colors.white,
+                                      size: 16,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      'Change Password',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.grey[800],
+                                      ),
+                                    ),
+                                  ),
+                                  Icon(
+                                    Icons.chevron_right_rounded,
+                                    color: Colors.grey[600],
+                                    size: 20,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        // Logout
+                        Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: () => _logout(context),
+                            borderRadius: BorderRadius.circular(8),
+                            child: Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFED7D7),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(6),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFFC8181),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: const Icon(
+                                      Icons.logout_rounded,
+                                      color: Colors.white,
+                                      size: 16,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      'Logout',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.grey[800],
+                                      ),
+                                    ),
+                                  ),
+                                  Icon(
+                                    Icons.chevron_right_rounded,
+                                    color: Colors.grey[600],
+                                    size: 20,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+
+                const SizedBox(height: 30),
               ]),
             ),
           ),

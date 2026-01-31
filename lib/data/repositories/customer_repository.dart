@@ -16,11 +16,13 @@ class CustomerRepository {
     String? category,
     String? authorizationStatus,
     String? updatedAfter,
+    String? projectId,
   }) async {
     final response = await apiClient.getJson(
-      ApiEndpoints.customers,
+      '${ApiEndpoints.customers}/$projectId/$sourceType',
       query: {
         'source_type': sourceType,
+        if (projectId != null && projectId.isNotEmpty) 'project_id': projectId,
         if (search != null && search.isNotEmpty) 'search': search,
         if (municipalityName != null && municipalityName.isNotEmpty)
           'municipality_name': municipalityName,

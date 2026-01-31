@@ -1,6 +1,7 @@
+import 'package:data_care_app/data/models/projects_model.dart';
 import 'package:data_care_app/features/bill_distribution/screens/bill_list_screen.dart';
 import 'package:data_care_app/features/bill_distribution/screens/new_bill_distribution/bill_distribution_list_screen.dart';
-import 'package:data_care_app/features/model/model.dart';
+
 import 'package:data_care_app/features/survey_data/screens/new_survey/survey_list_screen%20copy.dart';
 import 'package:flutter/material.dart';
 
@@ -162,7 +163,9 @@ class ProjectDetailScreen extends StatelessWidget {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => BillDistributorScreen(),
+                          builder: (context) => BillDistributorScreen(
+                            projectId: project.id.toString(),
+                          ),
                         ),
                       );
                     },
@@ -178,7 +181,8 @@ class ProjectDetailScreen extends StatelessWidget {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => SurveyListScreen(),
+                          builder: (context) => SurveyListScreen(
+                              projectId: project.id.toString()),
                         ),
                       );
                     },
