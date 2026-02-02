@@ -5,11 +5,13 @@ import 'package:google_fonts/google_fonts.dart';
 class SurveyFormScreen extends StatefulWidget {
   final Survey? survey;
   final bool isEditMode;
+  final int? projectId;
 
   const SurveyFormScreen({
     super.key,
     this.survey,
     this.isEditMode = false,
+    this.projectId,
   });
 
   @override
@@ -64,10 +66,11 @@ class _SurveyFormScreenState extends State<SurveyFormScreen>
       });
     });
 
-    // Initialize controllers
-    // _idController = TextEditingController(
-    //   text: widget.isEditMode ? widget.survey!.id : _generateSurveyId(),
-    // );
+    final surveyId = widget.isEditMode && widget.survey != null
+        ? widget.survey!.displayId
+        : _generateSurveyId();
+
+    _idController = TextEditingController(text: surveyId);
     _nameController = TextEditingController(text: widget.survey?.name ?? '');
     _propertyIdController = TextEditingController(
         text: widget.survey?.propertyDetailsPropertyId ?? '');
@@ -120,6 +123,90 @@ class _SurveyFormScreenState extends State<SurveyFormScreen>
     return 'SRV${timestamp.toString().substring(8)}';
   }
 
+  void _submitForm() async {
+    if (!_validateCurrentStep()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Please fill all required fields in Step ${_currentStep + 1}',
+          ),
+          backgroundColor: specificationsColor,
+        ),
+      );
+      return;
+    }
+
+    if (_currentStep < 2) {
+      _nextStep();
+      return;
+    }
+
+    setState(() => _saving = true);
+    await Future.delayed(const Duration(milliseconds: 800));
+
+    // Create Survey object
+    final survey = Survey(
+      id: widget.isEditMode && widget.survey != null ? widget.survey!.id : 0,
+      displayId: _idController.text.trim(),
+      projectId: widget.projectId ?? 0, // Ensure projectId is non-null here
+      name: _nameController.text.trim(),
+      municipalityName: _municipalityController.text.trim().isNotEmpty
+          ? _municipalityController.text.trim()
+          : null,
+      propertyDetailsPropertyId: _propertyIdController.text.trim().isNotEmpty
+          ? _propertyIdController.text.trim()
+          : null,
+      integratedPidPropertyId: _integratedPidController.text.trim().isNotEmpty
+          ? _integratedPidController.text.trim()
+          : null,
+      integratedPidOwnerOccupierName:
+          _integratedOwnerController.text.trim().isNotEmpty
+              ? _integratedOwnerController.text.trim()
+              : null,
+      areaOfAuthority: _areaOfAuthorityController.text.trim().isNotEmpty
+          ? _areaOfAuthorityController.text.trim()
+          : null,
+      colonyName: _colonyController.text.trim().isNotEmpty
+          ? _colonyController.text.trim()
+          : null,
+      addressOfProperty: _addressController.text.trim().isNotEmpty
+          ? _addressController.text.trim()
+          : null,
+      mobileNo: _mobileController.text.trim().isNotEmpty
+          ? _mobileController.text.trim()
+          : null,
+      category: _categoryController.text.trim().isNotEmpty
+          ? _categoryController.text.trim()
+          : null,
+      totalArea: _totalAreaController.text.trim().isNotEmpty
+          ? _totalAreaController.text.trim()
+          : null,
+      unit: _unitController.text.trim().isNotEmpty
+          ? _unitController.text.trim()
+          : null,
+      authorizationStatus: _authorizationStatusController.text.trim().isNotEmpty
+          ? _authorizationStatusController.text.trim()
+          : null,
+      propertyImageUrl: widget.isEditMode && widget.survey != null
+          ? widget.survey!.propertyImageUrl
+          : null,
+      sourceType: 'survey', // Yeh important hai
+      isActive: widget.isEditMode && widget.survey != null
+          ? widget.survey!.isActive
+          : true,
+      createdAt: widget.isEditMode && widget.survey != null
+          ? widget.survey!.createdAt
+          : DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+
+    setState(() => _saving = false);
+
+    if (mounted) {
+      Navigator.of(context).pop(survey);
+    }
+  }
+
   void _nextStep() {
     if (_currentStep < 2) {
       _tabController.animateTo(_currentStep + 1);
@@ -161,58 +248,100 @@ class _SurveyFormScreenState extends State<SurveyFormScreen>
     }
   }
 
-  void _submitForm() async {
-    if (!_validateCurrentStep()) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Please fill all required fields in Step ${_currentStep + 1}',
-            style: GoogleFonts.inter(
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          backgroundColor: specificationsColor,
-          behavior: SnackBarBehavior.floating,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          margin: const EdgeInsets.all(12),
-        ),
-      );
-      return;
-    }
+//  void _submitForm() async {
+//   if (!_validateCurrentStep()) {
+//     ScaffoldMessenger.of(context).showSnackBar(
+//       SnackBar(
+//         content: Text(
+//           'Please fill all required fields in Step ${_currentStep + 1}',
+//           style: GoogleFonts.inter(
+//             fontWeight: FontWeight.w600,
+//           ),
+//         ),
+//         backgroundColor: specificationsColor,
+//         behavior: SnackBarBehavior.floating,
+//         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+//         margin: const EdgeInsets.all(12),
+//       ),
+//     );
+//     return;
+//   }
 
-    if (_currentStep < 2) {
-      _nextStep();
-      return;
-    }
+//   if (_currentStep < 2) {
+//     _nextStep();
+//     return;
+//   }
 
-    if (_formKey.currentState!.validate()) {
-      setState(() => _saving = true);
+//   setState(() => _saving = true);
 
-      await Future.delayed(const Duration(milliseconds: 800));
+//   await Future.delayed(const Duration(milliseconds: 800));
 
-      // final survey = Survey(
-      //   id: _idController.text.trim(),
-      //   name: _nameController.text.trim(),
-      //   propertyDetailsPropertyId: _propertyIdController.text.trim(),
-      //   municipalityName: _municipalityController.text.trim(),
-      //   integratedPidPropertyId: _integratedPidController.text.trim(),
-      //   integratedPidOwnerOccupierName: _integratedOwnerController.text.trim(),
-      //   areaOfAuthority: _areaOfAuthorityController.text.trim(),
-      //   colonyName: _colonyController.text.trim(),
-      //   addressOfProperty: _addressController.text.trim(),
-      //   mobileNo: _mobileController.text.trim(),
-      //   category: _categoryController.text.trim(),
-      //   totalArea: _totalAreaController.text.trim(),
-      //   unit: _unitController.text.trim(),
-      //   authorizationStatus: _authorizationStatusController.text.trim(), displayId: '', projectId: null, sourceType: '', isActive: null, createdAt: null, updatedAt: DateTime(  ),
+//   // Create Survey object
+//   final survey = Survey(
+//     id: widget.isEditMode && widget.survey != null
+//         ? widget.survey!.id
+//         : 0, // 0 for new survey (server will assign)
+//     displayId: _idController.text.trim(),
+//     projectId: widget.isEditMode && widget.survey != null
+//         ? widget.survey!.projectId
+//         : (widget.projectId != null ? int.parse(widget.projectId!) : 0),
+//     name: _nameController.text.trim(),
+//     municipalityName: _municipalityController.text.trim().isNotEmpty
+//         ? _municipalityController.text.trim()
+//         : null,
+//     propertyDetailsPropertyId: _propertyIdController.text.trim().isNotEmpty
+//         ? _propertyIdController.text.trim()
+//         : null,
+//     integratedPidPropertyId: _integratedPidController.text.trim().isNotEmpty
+//         ? _integratedPidController.text.trim()
+//         : null,
+//     integratedPidOwnerOccupierName: _integratedOwnerController.text.trim().isNotEmpty
+//         ? _integratedOwnerController.text.trim()
+//         : null,
+//     areaOfAuthority: _areaOfAuthorityController.text.trim().isNotEmpty
+//         ? _areaOfAuthorityController.text.trim()
+//         : null,
+//     colonyName: _colonyController.text.trim().isNotEmpty
+//         ? _colonyController.text.trim()
+//         : null,
+//     addressOfProperty: _addressController.text.trim().isNotEmpty
+//         ? _addressController.text.trim()
+//         : null,
+//     mobileNo: _mobileController.text.trim().isNotEmpty
+//         ? _mobileController.text.trim()
+//         : null,
+//     category: _categoryController.text.trim().isNotEmpty
+//         ? _categoryController.text.trim()
+//         : null,
+//     totalArea: _totalAreaController.text.trim().isNotEmpty
+//         ? _totalAreaController.text.trim()
+//         : null,
+//     unit: _unitController.text.trim().isNotEmpty
+//         ? _unitController.text.trim()
+//         : null,
+//     authorizationStatus: _authorizationStatusController.text.trim().isNotEmpty
+//         ? _authorizationStatusController.text.trim()
+//         : null,
+//     propertyImageUrl: widget.isEditMode && widget.survey != null
+//         ? widget.survey!.propertyImageUrl
+//         : null,
+//     sourceType: 'survey',
+//     isActive: widget.isEditMode && widget.survey != null
+//         ? widget.survey!.isActive
+//         : true,
+//     createdAt: widget.isEditMode && widget.survey != null
+//         ? widget.survey!.createdAt
+//         : DateTime.now(),
+//     updatedAt: DateTime.now(),
+//   );
 
-      // );
+//   setState(() => _saving = false);
 
-      // setState(() => _saving = false);
-      // Navigator.of(context).pop(survey);
-    }
-  }
+//   // Return the survey to SurveyListScreen
+//   if (mounted) {
+//     Navigator.of(context).pop(survey);
+//   }
+// }
 
   @override
   Widget build(BuildContext context) {
@@ -696,6 +825,73 @@ class _SurveyFormScreenState extends State<SurveyFormScreen>
         padding: const EdgeInsets.all(8),
         child: Column(
           children: [
+            // Specifications Section
+            Container(
+              decoration: BoxDecoration(
+                color: cardColor,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(
+                    color: specificationsColor.withOpacity(0.1), width: 1),
+                boxShadow: [
+                  BoxShadow(
+                    color: specificationsColor.withOpacity(0.08),
+                    blurRadius: 15,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: [
+                  const SizedBox(height: 8),
+                  _buildCompactTextField(
+                    controller: _categoryController,
+                    label: 'Category',
+                    icon: Icons.category_rounded,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Category is required';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  _buildCompactTextField(
+                    controller: _totalAreaController,
+                    label: 'Total Area',
+                    icon: Icons.square_foot_rounded,
+                    keyboardType: TextInputType.number,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Total area is required';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  _buildCompactTextField(
+                    controller: _unitController,
+                    label: 'Unit',
+                    icon: Icons.space_dashboard_rounded,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Unit is required';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  _buildCompactTextField(
+                    controller: _authorizationStatusController,
+                    label: 'Authorization Status',
+                    icon: Icons.verified_rounded,
+                  ),
+                  const SizedBox(height: 8),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+
+            // Photos Section (optional)
             Container(
               decoration: BoxDecoration(
                 color: cardColor,

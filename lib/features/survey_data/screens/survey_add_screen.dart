@@ -85,7 +85,7 @@ class _SurveyAddScreenState extends State<SurveyAddScreen> {
       payload.removeWhere(
         (key, value) => value == null || value.toString().trim().isEmpty,
       );
-      await _repository.createCustomer(payload);
+      // await _repository.createCustomer(payload);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Record created')),

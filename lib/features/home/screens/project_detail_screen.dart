@@ -164,7 +164,7 @@ class ProjectDetailScreen extends StatelessWidget {
                         context,
                         MaterialPageRoute(
                           builder: (context) => BillDistributorScreen(
-                            projectId: project.id.toString(),
+                            projectId: project.id,
                           ),
                         ),
                       );
@@ -181,8 +181,8 @@ class ProjectDetailScreen extends StatelessWidget {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => SurveyListScreen(
-                              projectId: project.id.toString()),
+                          builder: (context) =>
+                              SurveyListScreen(projectId: project.id),
                         ),
                       );
                     },
