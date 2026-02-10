@@ -93,8 +93,7 @@ class _BillDistributorScreenState extends State<BillDistributorScreen> {
 
     return _allBills.where((bill) {
       final query = _searchQuery.toLowerCase();
-      return bill.displayId.toLowerCase().contains(query) ||
-          bill.customerName.toLowerCase().contains(query) ||
+      return bill.customerName.toLowerCase().contains(query) ||
           bill.propertyDetails.toLowerCase().contains(query) ||
           bill.mobile.toLowerCase().contains(query) ||
           // bill.category.toLowerCase().contains(query) ||
@@ -153,7 +152,7 @@ class _BillDistributorScreenState extends State<BillDistributorScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Bill "${result.displayId}" created successfully'),
+          content: Text('Bill "${result.name}" created successfully'),
           backgroundColor: Colors.green.shade600,
           duration: const Duration(seconds: 2),
         ),
@@ -183,7 +182,7 @@ class _BillDistributorScreenState extends State<BillDistributorScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Bill "${result.displayId}" updated successfully'),
+          content: Text('Bill "${result.name}" updated successfully'),
           backgroundColor: Colors.blue.shade600,
           duration: const Duration(seconds: 2),
         ),
@@ -866,51 +865,6 @@ class _BillDistributorScreenState extends State<BillDistributorScreen> {
           ),
           const SizedBox(height: 8),
         ],
-      ),
-      floatingActionButton: Container(
-        decoration: BoxDecoration(
-          color: const Color(0xFF667eea),
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF667eea).withOpacity(0.3),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: _navigateToAddBill,
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 12,
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.add_rounded,
-                    color: Colors.white,
-                    size: 18,
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    'Add New Bill',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );

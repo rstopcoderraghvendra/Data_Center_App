@@ -91,8 +91,7 @@ class _SurveyListScreenState extends State<SurveyListScreen> {
 
     return _allSurveys.where((survey) {
       final query = _searchQuery.toLowerCase();
-      return survey.displayId.toLowerCase().contains(query) ||
-          survey.name.toLowerCase().contains(query) ||
+      return (survey.name?.toLowerCase() ?? '').contains(query) ||
           (survey.mobileNo?.toLowerCase() ?? '').contains(query) ||
           (survey.category?.toLowerCase() ?? '').contains(query) ||
           (survey.colonyName?.toLowerCase() ?? '').contains(query) ||
@@ -177,8 +176,8 @@ class _SurveyListScreenState extends State<SurveyListScreen> {
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-                'Survey "${createdSurvey.displayId}" created successfully'),
+            content:
+                Text('Survey "${createdSurvey.name}" created successfully'),
             backgroundColor: Colors.green.shade600,
             duration: const Duration(seconds: 2),
           ),
@@ -224,6 +223,7 @@ class _SurveyListScreenState extends State<SurveyListScreen> {
           'unit': result.unit,
           'authorization_status': result.authorizationStatus,
           'is_active': result.isActive,
+          'source_type': 'survey',
           // source_type update nahi karenge kyunki woh pehle se set hai
         };
 
@@ -245,8 +245,8 @@ class _SurveyListScreenState extends State<SurveyListScreen> {
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-                'Survey "${updatedSurvey.displayId}" updated successfully'),
+            content:
+                Text('Survey "${updatedSurvey.name}" updated successfully'),
             backgroundColor: Colors.blue.shade600,
             duration: const Duration(seconds: 2),
           ),
@@ -272,7 +272,7 @@ class _SurveyListScreenState extends State<SurveyListScreen> {
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
         ),
         content: Text(
-          'Are you sure you want to delete survey "${survey.displayId}"?',
+          'Are you sure you want to delete survey "${survey.name}"?',
           style: const TextStyle(fontSize: 14, color: Color(0xFF4A5568)),
         ),
         actions: [
@@ -296,8 +296,8 @@ class _SurveyListScreenState extends State<SurveyListScreen> {
 
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text(
-                        'Survey "${survey.displayId}" deleted successfully'),
+                    content:
+                        Text('Survey "${survey.name}" deleted successfully'),
                     backgroundColor: Colors.red.shade600,
                   ),
                 );
@@ -510,30 +510,6 @@ class _SurveyListScreenState extends State<SurveyListScreen> {
                                       child: Row(
                                         children: [
                                           SizedBox(
-                                            width: 80,
-                                            child: Text(
-                                              'Survey ID',
-                                              style: TextStyle(
-                                                fontWeight: FontWeight.w600,
-                                                color: const Color(0xFF2D3748),
-                                                fontSize: 12,
-                                              ),
-                                            ),
-                                          ),
-                                          const SizedBox(width: 20),
-                                          SizedBox(
-                                            width: 120,
-                                            child: Text(
-                                              'Owner Name',
-                                              style: TextStyle(
-                                                fontWeight: FontWeight.w600,
-                                                color: const Color(0xFF2D3748),
-                                                fontSize: 11,
-                                              ),
-                                            ),
-                                          ),
-                                          const SizedBox(width: 20),
-                                          SizedBox(
                                             width: 100,
                                             child: Text(
                                               'Municipality',
@@ -558,9 +534,56 @@ class _SurveyListScreenState extends State<SurveyListScreen> {
                                           ),
                                           const SizedBox(width: 20),
                                           SizedBox(
-                                            width: 100,
+                                            width: 120,
                                             child: Text(
-                                              'Mobile No.',
+                                              'Owner Name',
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.w600,
+                                                color: const Color(0xFF2D3748),
+                                                fontSize: 11,
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 20),
+                                          SizedBox(
+                                            width: 120,
+                                            child: Text(
+                                              'Property ID ',
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.w600,
+                                                color: const Color(0xFF2D3748),
+                                                fontSize: 11,
+                                              ),
+                                            ),
+                                          ),
+                                          SizedBox(
+                                            width: 120,
+                                            child: Text(
+                                              'Owner/  Occupier Name',
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.w600,
+                                                color: const Color(0xFF2D3748),
+                                                fontSize: 11,
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 20),
+                                          SizedBox(
+                                            width: 120,
+                                            child: Text(
+                                              'Area Of the  Authority',
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.w600,
+                                                color: const Color(0xFF2D3748),
+                                                fontSize: 11,
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 20),
+                                          SizedBox(
+                                            width: 120,
+                                            child: Text(
+                                              'Name Of the Colony',
                                               style: TextStyle(
                                                 fontWeight: FontWeight.w600,
                                                 color: const Color(0xFF2D3748),
@@ -572,7 +595,19 @@ class _SurveyListScreenState extends State<SurveyListScreen> {
                                           SizedBox(
                                             width: 150,
                                             child: Text(
-                                              'Address',
+                                              'Address   of Property',
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.w600,
+                                                color: const Color(0xFF2D3748),
+                                                fontSize: 11,
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 20),
+                                          SizedBox(
+                                            width: 100,
+                                            child: Text(
+                                              'Mobile No.',
                                               style: TextStyle(
                                                 fontWeight: FontWeight.w600,
                                                 color: const Color(0xFF2D3748),
@@ -666,37 +701,6 @@ class _SurveyListScreenState extends State<SurveyListScreen> {
                                           child: Row(
                                             children: [
                                               SizedBox(
-                                                width: 80,
-                                                child: Text(
-                                                  survey.displayId,
-                                                  style: textTheme.bodySmall
-                                                      ?.copyWith(
-                                                    fontFamily:
-                                                        GoogleFonts.poppins()
-                                                            .fontFamily,
-                                                    fontSize: 11,
-                                                  ),
-                                                ),
-                                              ),
-                                              const SizedBox(width: 20),
-                                              SizedBox(
-                                                width: 120,
-                                                child: Text(
-                                                  survey.name,
-                                                  style: textTheme.bodySmall
-                                                      ?.copyWith(
-                                                    fontFamily:
-                                                        GoogleFonts.poppins()
-                                                            .fontFamily,
-                                                    fontSize: 11,
-                                                  ),
-                                                  maxLines: 1,
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                ),
-                                              ),
-                                              const SizedBox(width: 20),
-                                              SizedBox(
                                                 width: 100,
                                                 child: Text(
                                                   survey.municipalityName ??
@@ -733,9 +737,78 @@ class _SurveyListScreenState extends State<SurveyListScreen> {
                                               ),
                                               const SizedBox(width: 20),
                                               SizedBox(
-                                                width: 100,
+                                                width: 120,
                                                 child: Text(
-                                                  survey.mobileNo ?? '-',
+                                                  survey.name.toString() ?? '-',
+                                                  style: textTheme.bodySmall
+                                                      ?.copyWith(
+                                                    fontFamily:
+                                                        GoogleFonts.poppins()
+                                                            .fontFamily,
+                                                    fontSize: 11,
+                                                  ),
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 20),
+                                              SizedBox(
+                                                width: 120,
+                                                child: Text(
+                                                  survey.integratedPidPropertyId ??
+                                                      '-',
+                                                  style: textTheme.bodySmall
+                                                      ?.copyWith(
+                                                    fontFamily:
+                                                        GoogleFonts.poppins()
+                                                            .fontFamily,
+                                                    fontSize: 11,
+                                                  ),
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                              SizedBox(
+                                                width: 120,
+                                                child: Text(
+                                                  survey.integratedPidOwnerOccupierName ??
+                                                      '-',
+                                                  style: textTheme.bodySmall
+                                                      ?.copyWith(
+                                                    fontFamily:
+                                                        GoogleFonts.poppins()
+                                                            .fontFamily,
+                                                    fontSize: 11,
+                                                  ),
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 20),
+                                              SizedBox(
+                                                width: 120,
+                                                child: Text(
+                                                  survey.areaOfAuthority ?? '-',
+                                                  style: textTheme.bodySmall
+                                                      ?.copyWith(
+                                                    fontFamily:
+                                                        GoogleFonts.poppins()
+                                                            .fontFamily,
+                                                    fontSize: 11,
+                                                  ),
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 20),
+                                              SizedBox(
+                                                width: 120,
+                                                child: Text(
+                                                  survey.colonyName ?? '-',
                                                   style: textTheme.bodySmall
                                                       ?.copyWith(
                                                     fontFamily:
@@ -759,6 +832,23 @@ class _SurveyListScreenState extends State<SurveyListScreen> {
                                                       ? '${survey.addressOfProperty?.substring(0, 20)}...'
                                                       : survey.addressOfProperty ??
                                                           '-',
+                                                  style: textTheme.bodySmall
+                                                      ?.copyWith(
+                                                    fontFamily:
+                                                        GoogleFonts.poppins()
+                                                            .fontFamily,
+                                                    fontSize: 11,
+                                                  ),
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 20),
+                                              SizedBox(
+                                                width: 100,
+                                                child: Text(
+                                                  survey.mobileNo ?? '-',
                                                   style: textTheme.bodySmall
                                                       ?.copyWith(
                                                     fontFamily:
@@ -886,7 +976,7 @@ class _SurveyListScreenState extends State<SurveyListScreen> {
                                                             _navigateToEditSurvey(
                                                                 survey),
                                                         icon: Icon(
-                                                          Icons.edit_rounded,
+                                                          Icons.menu,
                                                           size: 14,
                                                           color: Colors
                                                               .blue.shade700,
