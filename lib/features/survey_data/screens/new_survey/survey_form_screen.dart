@@ -217,6 +217,155 @@ class _SurveyFormScreenState extends State<SurveyFormScreen>
     return data;
   }
 
+  // Future<void> _submitForm() async {
+  //   // ✅ CRITICAL FIX: Prevent double submission
+  //   if (_isSubmitting) {
+  //     print('⏸️ Form already submitting, ignoring duplicate click');
+  //     return;
+  //   }
+
+  //   // ✅ CHANGED: No validation check, directly proceed
+  //   setState(() {
+  //     _isSubmitting = true;
+  //     _saving = true;
+  //     _errorMessage = '';
+  //   });
+
+  //   try {
+  //     // Get form data
+  //     final stepData = _getCurrentStepData();
+  //     // stepData['verifiy_vy'] = 'vy'; // Ensure source_type is always set
+
+  //     // Debug print
+  //     print('\n=== SURVEY FORM SUBMIT ===');
+  //     print('Current Step: $_currentStep');
+  //     print('Is Edit Mode: ${widget.isEditMode}');
+  //     print('Created Survey ID: $_createdSurveyId');
+  //     print('Project ID: ${widget.projectId}');
+  //     print('Step Data: $stepData');
+
+  //     // Prepare image files for upload
+  //     Map<String, File>? imageFiles;
+
+  //     if (_currentStep == 2) {
+  //       imageFiles = {};
+
+  //       // Check for new image files
+  //       if (_frontViewFile != null) {
+  //         imageFiles['front_view'] = _frontViewFile!;
+  //         print('📸 Front view image selected');
+  //       }
+  //       if (_sideViewFile != null) {
+  //         imageFiles['side_view'] = _sideViewFile!;
+  //         print('📸 Side view image selected');
+  //       }
+  //       if (_additionalFile != null) {
+  //         imageFiles['additional'] = _additionalFile!;
+  //         print('📸 Additional image selected');
+  //       }
+  //       if (_locationFile != null) {
+  //         imageFiles['location'] = _locationFile!;
+  //         print('📸 Location image selected');
+  //       }
+
+  //       // If no new files, make sure imageFiles is null
+  //       if (imageFiles.isEmpty) {
+  //         imageFiles = null;
+  //         print('📸 No new images to upload');
+  //       }
+  //     }
+
+  //     Map<String, dynamic> apiResponse;
+  //     Survey updatedSurvey;
+
+  //     // ✅ SIMPLIFIED LOGIC: Always UPDATE if survey exists
+  //     if (widget.isEditMode || _createdSurveyId != null) {
+  //       // ✅ UPDATE MODE - Use existing survey ID
+  //       final surveyIdToUpdate =
+  //           widget.isEditMode ? widget.survey!.id! : _createdSurveyId!;
+
+  //       print('🔄 UPDATE MODE: Survey ID $surveyIdToUpdate');
+
+  //       apiResponse = await _repository.updateCustomer(
+  //         surveyIdToUpdate,
+  //         stepData,
+  //         imageFiles: imageFiles,
+  //       );
+
+  //       print('✅ Update successful for ID $surveyIdToUpdate');
+  //     } else {
+  //       // ✅ CREATE MODE - Only for first time save (Step 0)
+  //       print('🆕 CREATE MODE: Creating new survey');
+
+  //       if (widget.projectId == null) {
+  //         throw Exception('Project ID is required to create a new survey');
+  //       }
+
+  //       apiResponse = await _repository.createCustomer(
+  //         projectId: widget.projectId!,
+  //         data: stepData,
+  //         imageFiles: imageFiles,
+  //       );
+
+  //       print('✅ Create successful');
+  //     }
+
+  //     // Parse response to get survey
+  //     updatedSurvey = _parseSurveyFromResponse(apiResponse);
+
+  //     // ✅ CRITICAL FIX: Store survey ID after first create
+  //     if (_createdSurveyId == null && updatedSurvey.id != null) {
+  //       _createdSurveyId = updatedSurvey.id;
+  //       print('📌 Stored new Survey ID: $_createdSurveyId');
+  //     }
+
+  //     // ✅ Show success dialog
+  //     await _showSuccessDialog();
+
+  //     setState(() {
+  //       _isSubmitting = false;
+  //       _saving = false;
+  //     });
+
+  //     // ✅ If last step completed, return to list
+  //     if (_currentStep == 2) {
+  //       // Call callback to refresh list
+  //       widget.onSaveSuccess?.call();
+
+  //       if (mounted) {
+  //         Navigator.of(context).pop(updatedSurvey);
+  //       }
+  //     }
+  //   } catch (e) {
+  //     setState(() {
+  //       _isSubmitting = false;
+  //       _saving = false;
+  //       _errorMessage = e.toString();
+  //     });
+
+  //     print('❌ Error: $e');
+  //     print('Stack trace: ${e.toString()}');
+
+  //     if (mounted) {
+  //       ScaffoldMessenger.of(context).showSnackBar(
+  //         SnackBar(
+  //           content: Text(
+  //             'Error: ${e.toString()}',
+  //             style: GoogleFonts.inter(
+  //               fontWeight: FontWeight.w600,
+  //             ),
+  //           ),
+  //           backgroundColor: Colors.red,
+  //           behavior: SnackBarBehavior.floating,
+  //           shape: RoundedRectangleBorder(
+  //             borderRadius: BorderRadius.circular(12),
+  //           ),
+  //           margin: const EdgeInsets.all(12),
+  //         ),
+  //       );
+  //     }
+  //   }
+  // }
   Future<void> _submitForm() async {
     // ✅ CRITICAL FIX: Prevent double submission
     if (_isSubmitting) {
@@ -224,7 +373,82 @@ class _SurveyFormScreenState extends State<SurveyFormScreen>
       return;
     }
 
-    // ✅ CHANGED: No validation check, directly proceed
+    // ✅ NEW: Check if we're on Step 3 (Images) and show verification popup
+    if (_currentStep == 2) {
+      // Check if any new image is selected OR existing images present
+      final bool hasNewImages = _frontViewFile != null ||
+          _sideViewFile != null ||
+          _additionalFile != null ||
+          _locationFile != null;
+
+      final bool hasExistingImages = widget.isEditMode &&
+          (_frontViewImageController.text.isNotEmpty ||
+              _sideViewImageController.text.isNotEmpty ||
+              _additionalImageController.text.isNotEmpty ||
+              _locationImageController.text.isNotEmpty);
+
+      // If there are images (new or existing), show verification popup
+      if (hasNewImages || hasExistingImages) {
+        final verificationResult = await _showImageVerificationPopup();
+        if (verificationResult == null) {
+          print('❌ Image verification cancelled by user');
+          return;
+        }
+
+        // Get verification data from popup
+        final verifyByText = verificationResult['verify_by']?.trim() ?? '';
+        final agreedToTerms = verificationResult['agreed_to_terms'] ?? false;
+
+        // Validate inputs
+        if (verifyByText.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Please enter verification text',
+                style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+              ),
+              backgroundColor: Colors.orange,
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+          return;
+        }
+
+        if (!agreedToTerms) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Please agree to the terms to proceed',
+                style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+              ),
+              backgroundColor: Colors.orange,
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+          return;
+        }
+
+        // Now proceed with form submission with verify_by text
+        await _proceedWithFormSubmission(verifyByText);
+        return;
+      } else {
+        // No images at all - just proceed normally
+        final shouldProceed = await _showNoImagesVerificationDialog();
+        if (!shouldProceed) {
+          print('❌ Image save cancelled by user');
+          return;
+        }
+      }
+    }
+
+    // ✅ For non-image steps or when no images, proceed normally
+    await _proceedWithFormSubmission('');
+  }
+
+// ✅ NEW: Main form submission method with verify_by parameter
+  Future<void> _proceedWithFormSubmission(String verifyByText) async {
     setState(() {
       _isSubmitting = true;
       _saving = true;
@@ -235,12 +459,16 @@ class _SurveyFormScreenState extends State<SurveyFormScreen>
       // Get form data
       final stepData = _getCurrentStepData();
 
+      // ✅ Add verify_by field to the data
+      stepData['verify_by'] = verifyByText;
+
       // Debug print
       print('\n=== SURVEY FORM SUBMIT ===');
       print('Current Step: $_currentStep');
       print('Is Edit Mode: ${widget.isEditMode}');
       print('Created Survey ID: $_createdSurveyId');
       print('Project ID: ${widget.projectId}');
+      print('Verify By Text: $verifyByText');
       print('Step Data: $stepData');
 
       // Prepare image files for upload
@@ -364,6 +592,305 @@ class _SurveyFormScreenState extends State<SurveyFormScreen>
         );
       }
     }
+  }
+
+// ✅ NEW: Image verification popup dialog
+  Future<Map<String, dynamic>?> _showImageVerificationPopup() async {
+    final TextEditingController verifyByController = TextEditingController();
+    bool agreedToTerms = false;
+
+    return await showDialog<Map<String, dynamic>>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: Row(
+                children: [
+                  Icon(Icons.verified_user_rounded,
+                      color: Colors.purple.shade600, size: 24),
+                  const SizedBox(width: 10),
+                  Text(
+                    'Image Verification',
+                    style: GoogleFonts.inter(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 18,
+                      color: textPrimary,
+                    ),
+                  ),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Verification text
+                    Text(
+                      'Verify By',
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+
+                    // Input field for verify_by
+                    TextFormField(
+                      controller: verifyByController,
+                      decoration: InputDecoration(
+                        hintText: 'Enter verification text...',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide:
+                              BorderSide(color: borderColor, width: 1.2),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(color: primaryColor, width: 2),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                      ),
+                      maxLines: 1,
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        color: textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Checkbox for terms agreement
+                    Row(
+                      children: [
+                        Checkbox(
+                          value: agreedToTerms,
+                          onChanged: (value) {
+                            setState(() {
+                              agreedToTerms = value ?? false;
+                            });
+                          },
+                          activeColor: primaryColor,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                        Expanded(
+                          child: Text(
+                            'I confirm that the uploaded images are accurate and verified',
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              color: textSecondary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+
+                    // Info box
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.purple.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.purple.shade100),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.info_outline_rounded,
+                              color: Colors.purple.shade600, size: 18),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'This verification text will be saved with your survey images.',
+                              style: GoogleFonts.inter(
+                                fontSize: 12,
+                                color: Colors.purple.shade800,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(null),
+                  child: Text(
+                    'Cancel',
+                    style: GoogleFonts.inter(
+                      fontWeight: FontWeight.w600,
+                      color: textSecondary,
+                    ),
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    if (verifyByController.text.trim().isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            'Please enter verification text',
+                            style:
+                                GoogleFonts.inter(fontWeight: FontWeight.w600),
+                          ),
+                          backgroundColor: Colors.orange,
+                          behavior: SnackBarBehavior.floating,
+                          duration: const Duration(seconds: 1),
+                        ),
+                      );
+                      return;
+                    }
+
+                    if (!agreedToTerms) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            'Please agree to the terms',
+                            style:
+                                GoogleFonts.inter(fontWeight: FontWeight.w600),
+                          ),
+                          backgroundColor: Colors.orange,
+                          behavior: SnackBarBehavior.floating,
+                          duration: const Duration(seconds: 1),
+                        ),
+                      );
+                      return;
+                    }
+
+                    Navigator.of(context).pop({
+                      'verify_by': verifyByController.text.trim(),
+                      'agreed_to_terms': agreedToTerms,
+                    });
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: photosColor,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: Text(
+                    'Submit',
+                    style: GoogleFonts.inter(
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+// ✅ NEW: No images verification dialog
+  Future<bool> _showNoImagesVerificationDialog() async {
+    return await showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: Row(
+                children: [
+                  Icon(Icons.warning_amber_rounded,
+                      color: Colors.orange.shade600, size: 24),
+                  const SizedBox(width: 10),
+                  Text(
+                    'No Images Selected',
+                    style: GoogleFonts.inter(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 18,
+                      color: textPrimary,
+                    ),
+                  ),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'You haven\'t selected any images for this survey.',
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      color: textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.orange.shade100),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.info_outline_rounded,
+                            color: Colors.orange.shade600, size: 18),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'You can add images later by editing this survey.',
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              color: Colors.orange.shade800,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: Text(
+                    'Cancel',
+                    style: GoogleFonts.inter(
+                      fontWeight: FontWeight.w600,
+                      color: textSecondary,
+                    ),
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.of(context).pop(true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: photosColor,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: Text(
+                    'Save Without Images',
+                    style: GoogleFonts.inter(
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        ) ??
+        false;
   }
 
   Survey _parseSurveyFromResponse(Map<String, dynamic> apiResponse) {
