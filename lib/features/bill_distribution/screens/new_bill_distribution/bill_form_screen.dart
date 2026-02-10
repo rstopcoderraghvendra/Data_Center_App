@@ -42,18 +42,18 @@ class _BillFormScreenState extends State<BillFormScreen>
   File? _additionalFile;
   File? _locationFile;
 
-  // Controllers for Step 1
+  // Controllers for Step 1 (Basic Info)
   final _municipalityNameController = TextEditingController();
   final _propertyIdController = TextEditingController();
   final _ownerNameController = TextEditingController();
+  final _mobileController = TextEditingController();
 
-  // Controllers for Step 2
+  // Controllers for Step 2 (Property Details) - ✅ REQUIRED VALIDATION HATA DIYA
   final _step2PropertyIdController = TextEditingController();
   final _step2OwnerNameController = TextEditingController();
   final _areaOfAuthorityController = TextEditingController();
   final _colonyNameController = TextEditingController();
   final _addressController = TextEditingController();
-  final _mobileController = TextEditingController();
   final _categoryController = TextEditingController();
   final _totalAreaController = TextEditingController();
   final _unitController = TextEditingController();
@@ -87,6 +87,10 @@ class _BillFormScreenState extends State<BillFormScreen>
   @override
   void initState() {
     super.initState();
+    print('🔄 Initializing Bill Form Screen...');
+    print('📋 Edit Mode: ${widget.isEditMode}');
+    print('📋 Bill ID: ${widget.bill?.id}');
+
     _repository = CustomerRepository(ApiClient(storage: LocalStorage()));
     _tabController = TabController(length: 3, vsync: this);
     _tabController.addListener(() {
@@ -102,36 +106,43 @@ class _BillFormScreenState extends State<BillFormScreen>
   }
 
   void _loadBillData() {
+    print('📥 Loading bill data for ID: ${widget.bill!.id}');
+
     // Step 1 data
-    _municipalityNameController.text = widget.bill!.municipality;
-    _propertyIdController.text = widget.bill!.propertyDetails;
-    _ownerNameController.text = widget.bill!.customerName;
+    _municipalityNameController.text = widget.bill!.municipalityName ?? '';
+    _propertyIdController.text = widget.bill!.propertyDetailsPropertyId ?? '';
+    _ownerNameController.text = widget.bill!.name ?? '';
+    _mobileController.text = widget.bill!.mobileNo ?? '';
 
     // Step 2 data
-    _step2PropertyIdController.text = widget.bill!.integratedPid;
-    _step2OwnerNameController.text = widget.bill!.integratedOwner;
-    _areaOfAuthorityController.text = widget.bill!.areaOfAuthority.toString();
-    _colonyNameController.text = widget.bill!.colony;
-    _addressController.text = widget.bill!.address;
-    _mobileController.text = widget.bill!.mobile;
-    _categoryController.text = widget.bill!.category.toString();
-    _totalAreaController.text = widget.bill!.totalArea.toString();
-    _unitController.text = widget.bill!.unit.toString();
+    _step2PropertyIdController.text =
+        widget.bill!.integratedPidPropertyId ?? '';
+    _step2OwnerNameController.text =
+        widget.bill!.integratedPidOwnerOccupierName ?? '';
+    _areaOfAuthorityController.text = widget.bill!.areaOfAuthority ?? '';
+    _colonyNameController.text = widget.bill!.colonyName ?? '';
+    _addressController.text = widget.bill!.addressOfProperty ?? '';
+    _categoryController.text = widget.bill!.category ?? '';
+    _totalAreaController.text = widget.bill!.totalArea ?? '';
+    _unitController.text = widget.bill!.unit ?? '';
     _authorizationStatusController.text =
-        widget.bill!.authorizationStatus.toString();
+        widget.bill!.authorizationStatus ?? '';
 
-    // Step 3 data (images) - Load from propertyImages if not empty
-    if (widget.bill!.propertyImages != null &&
-        widget.bill!.propertyImages!.isNotEmpty) {
-      _frontViewImageController.text =
-          widget.bill!.propertyImages!.frontView ?? '';
-      _sideViewImageController.text =
-          widget.bill!.propertyImages!.sideView ?? '';
-      _additionalImageController.text =
-          widget.bill!.propertyImages!.additional ?? '';
-      _locationImageController.text =
-          widget.bill!.propertyImages!.location ?? '';
+    // Step 3 data (images)
+    if (widget.bill!.frontViewUrl != null) {
+      _frontViewImageController.text = widget.bill!.frontViewUrl!;
     }
+    if (widget.bill!.sideViewUrl != null) {
+      _sideViewImageController.text = widget.bill!.sideViewUrl!;
+    }
+    if (widget.bill!.additionalUrl != null) {
+      _additionalImageController.text = widget.bill!.additionalUrl!;
+    }
+    if (widget.bill!.locationUrl != null) {
+      _locationImageController.text = widget.bill!.locationUrl!;
+    }
+
+    print('✅ Bill data loaded successfully');
   }
 
   @override
@@ -142,6 +153,7 @@ class _BillFormScreenState extends State<BillFormScreen>
     _municipalityNameController.dispose();
     _propertyIdController.dispose();
     _ownerNameController.dispose();
+    _mobileController.dispose();
 
     // Step 2 controllers
     _step2PropertyIdController.dispose();
@@ -149,7 +161,6 @@ class _BillFormScreenState extends State<BillFormScreen>
     _areaOfAuthorityController.dispose();
     _colonyNameController.dispose();
     _addressController.dispose();
-    _mobileController.dispose();
     _categoryController.dispose();
     _totalAreaController.dispose();
     _unitController.dispose();
@@ -179,32 +190,20 @@ class _BillFormScreenState extends State<BillFormScreen>
   bool _validateCurrentStep() {
     switch (_currentStep) {
       case 0:
-        if (_municipalityNameController.text.isEmpty ||
-            _propertyIdController.text.isEmpty ||
-            _ownerNameController.text.isEmpty) {
+        // Step 1 में केवल Mobile का validation
+        if (_mobileController.text.isNotEmpty &&
+            _mobileController.text.length < 10) {
           return false;
         }
-        return true;
+        return true; // ✅ अन्य fields required नहीं हैं
       case 1:
-        if (_step2PropertyIdController.text.isEmpty ||
-            _step2OwnerNameController.text.isEmpty ||
-            _areaOfAuthorityController.text.isEmpty ||
-            _colonyNameController.text.isEmpty ||
-            _addressController.text.isEmpty ||
-            _mobileController.text.isEmpty ||
-            _mobileController.text.length < 10 ||
-            _categoryController.text.isEmpty ||
-            _totalAreaController.text.isEmpty ||
-            _unitController.text.isEmpty ||
-            _authorizationStatusController.text.isEmpty) {
-          return false;
-        }
+        // Step 2 में कोई required validation नहीं - ✅ CHANGED
         return true;
       case 2:
-        // Images are optional
+        // Images optional
         return true;
       default:
-        return false;
+        return true;
     }
   }
 
@@ -215,33 +214,67 @@ class _BillFormScreenState extends State<BillFormScreen>
 
     switch (_currentStep) {
       case 0: // Basic Info
-        data.addAll({
-          'municipality_name': _municipalityNameController.text.trim(),
-          'property_details_property_id': _propertyIdController.text.trim(),
-          'name': _ownerNameController.text.trim(),
-        });
+        // ✅ API के हिसाब से exact field names
+        if (_municipalityNameController.text.trim().isNotEmpty) {
+          data['municipality_name'] = _municipalityNameController.text.trim();
+        }
+        if (_propertyIdController.text.trim().isNotEmpty) {
+          data['property_details_property_id'] =
+              _propertyIdController.text.trim();
+        }
+        if (_ownerNameController.text.trim().isNotEmpty) {
+          data['name'] = _ownerNameController.text.trim();
+        }
+        if (_mobileController.text.trim().isNotEmpty) {
+          data['mobile_no'] = _mobileController.text.trim();
+        }
         break;
-      case 1: // Location & Details
-        data.addAll({
-          'property_id': _step2PropertyIdController.text.trim(),
-          'integrated_pid_owner_occupier_name':
-              _step2OwnerNameController.text.trim(),
-          'area_of_authority': _areaOfAuthorityController.text.trim(),
-          'colony_name': _colonyNameController.text.trim(),
-          'address_of_property': _addressController.text.trim(),
-          'mobile_no': _mobileController.text.trim(),
-          'category': _categoryController.text.trim(),
-          'total_area': _totalAreaController.text.trim(),
-          'unit': _unitController.text.trim(),
-          'authorization_status': _authorizationStatusController.text.trim(),
-        });
+      case 1: // Property Details
+        // ✅ API के हिसाब से exact field names
+        if (_step2PropertyIdController.text.trim().isNotEmpty) {
+          data['integrated_pid_property_id'] =
+              _step2PropertyIdController.text.trim();
+        }
+        if (_step2OwnerNameController.text.trim().isNotEmpty) {
+          data['integrated_pid_owner_occupier_name'] =
+              _step2OwnerNameController.text.trim();
+        }
+        if (_areaOfAuthorityController.text.trim().isNotEmpty) {
+          data['area_of_authority'] = _areaOfAuthorityController.text.trim();
+        }
+        if (_colonyNameController.text.trim().isNotEmpty) {
+          data['colony_name'] = _colonyNameController.text.trim();
+        }
+        if (_addressController.text.trim().isNotEmpty) {
+          data['address_of_property'] = _addressController.text.trim();
+        }
+        if (_categoryController.text.trim().isNotEmpty) {
+          data['category'] = _categoryController.text.trim();
+        }
+        if (_totalAreaController.text.trim().isNotEmpty) {
+          // Try to parse as number if possible
+          final totalAreaText = _totalAreaController.text.trim();
+          final totalAreaNum = int.tryParse(totalAreaText);
+          data['total_area'] = totalAreaNum ?? totalAreaText;
+        }
+        if (_unitController.text.trim().isNotEmpty) {
+          data['unit'] = _unitController.text.trim();
+        }
+        if (_authorizationStatusController.text.trim().isNotEmpty) {
+          data['authorization_status'] =
+              _authorizationStatusController.text.trim();
+        }
         break;
       case 2: // Images
-        // For images step, we'll handle files separately
-        // We don't need to add anything to form data for new images
-        // Existing URLs will be handled in _submitForm
+        // Images will be handled separately
         break;
     }
+
+    // ✅ Debug: Print the data being sent
+    print('📤 API Request Data for Step ${_currentStep + 1}:');
+    data.forEach((key, value) {
+      print('   $key: $value');
+    });
 
     return data;
   }
@@ -251,7 +284,7 @@ class _BillFormScreenState extends State<BillFormScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Please fill all required fields in Step ${_currentStep + 1}',
+            'Please check the entered data in Step ${_currentStep + 1}',
             style: GoogleFonts.inter(
               fontWeight: FontWeight.w600,
             ),
@@ -271,9 +304,12 @@ class _BillFormScreenState extends State<BillFormScreen>
       _errorMessage = '';
     });
 
+    print('🚀 Submitting form data for Step ${_currentStep + 1}...');
+
     try {
       // Get form data
       final stepData = _getCurrentStepData();
+      print('📊 Step Data: $stepData');
 
       // Prepare image files if we're in step 2 (images)
       Map<String, File>? imageFiles;
@@ -284,15 +320,19 @@ class _BillFormScreenState extends State<BillFormScreen>
         // Check for new image files
         if (_frontViewFile != null) {
           imageFiles['front_view'] = _frontViewFile!;
+          print('📸 Front view image selected');
         }
         if (_sideViewFile != null) {
           imageFiles['side_view'] = _sideViewFile!;
+          print('📸 Side view image selected');
         }
         if (_additionalFile != null) {
           imageFiles['additional'] = _additionalFile!;
+          print('📸 Additional image selected');
         }
         if (_locationFile != null) {
           imageFiles['location'] = _locationFile!;
+          print('📍 Location image selected');
         }
 
         // If no new files but we have existing URLs in edit mode
@@ -315,6 +355,7 @@ class _BillFormScreenState extends State<BillFormScreen>
 
           if (existingImages.isNotEmpty) {
             stepData['property_images'] = existingImages;
+            print('🖼️ Existing images data added');
           }
         }
       }
@@ -323,61 +364,38 @@ class _BillFormScreenState extends State<BillFormScreen>
 
       if (widget.isEditMode && widget.bill != null) {
         // Edit mode - update current step data
+        print('✏️ Updating bill ID: ${widget.bill!.id}');
+
         response = await _repository.updateCustomer(
           widget.bill!.id!,
           stepData,
           imageFiles: imageFiles?.isNotEmpty == true ? imageFiles : null,
         );
 
+        print('✅ Bill update API response received');
+
         // Show success dialog
         await _showSuccessDialog();
       } else {
-        // Create new bill
-        if (_currentStep == 0) {
-          // First step - create new bill with basic info
-          if (widget.projectId == null) {
-            throw Exception('Project ID is required to create a new bill');
-          }
-
-          response = await _repository.createCustomer(
-            projectId: widget.projectId!,
-            data: stepData,
-            imageFiles: imageFiles?.isNotEmpty == true ? imageFiles : null,
-          );
-
-          // Store the created bill ID for subsequent steps
-          final createdBill = Bill.fromJson(response);
-          _createdBillId = createdBill.id;
-
-          // Show success dialog
-          await _showSuccessDialog();
-        } else if (_createdBillId != null) {
-          // Subsequent steps - update the existing bill
-          response = await _repository.updateCustomer(
-            _createdBillId!,
-            stepData,
-            imageFiles: imageFiles?.isNotEmpty == true ? imageFiles : null,
-          );
-
-          // Show success dialog
-          await _showSuccessDialog();
-        } else {
-          throw Exception('Please complete Step 1 first to create a bill');
-        }
+        // CREATE NEW BILL IS NOT ALLOWED
+        throw Exception('Cannot create new bill. Only update mode is allowed.');
       }
 
       final updatedBill = Bill.fromJson(response);
+      print('📋 Updated Bill: ${updatedBill.id} - ${updatedBill.name}');
 
       setState(() => _saving = false);
 
       // Call callback to refresh list if on last step
       if (_currentStep == 2) {
         widget.onSaveSuccess?.call();
+        print('📞 Calling onSaveSuccess callback');
         if (mounted) {
           Navigator.of(context).pop(updatedBill);
         }
       }
     } catch (e) {
+      print('❌ Error submitting form: $e');
       setState(() {
         _saving = false;
         _errorMessage = e.toString();
@@ -440,7 +458,7 @@ class _BillFormScreenState extends State<BillFormScreen>
             TextButton(
               onPressed: () {
                 Navigator.of(context).pop();
-                if (_currentStep < 2 && !widget.isEditMode) {
+                if (_currentStep < 2) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(
@@ -468,44 +486,6 @@ class _BillFormScreenState extends State<BillFormScreen>
     );
   }
 
-  // Image handling methods
-  // Future<void> _pickImageForField(String imageType) async {
-  //   try {
-  //     final pickedFile = await _imagePicker.pickImage(
-  //       source: ImageSource.gallery,
-  //       imageQuality: 85,
-  //     );
-
-  //     if (pickedFile != null) {
-  //       final file = File(pickedFile.path);
-
-  //       setState(() {
-  //         switch (imageType) {
-  //           case 'front_view':
-  //             _frontViewFile = file;
-  //             break;
-  //           case 'side_view':
-  //             _sideViewFile = file;
-  //             break;
-  //           case 'additional':
-  //             _additionalFile = file;
-  //             break;
-  //           case 'location':
-  //             _locationFile = file;
-  //             break;
-  //         }
-  //       });
-  //     }
-  //   } catch (e) {
-  //     ScaffoldMessenger.of(context).showSnackBar(
-  //       SnackBar(
-  //         content: Text('Error picking image: $e'),
-  //         backgroundColor: Colors.red,
-  //       ),
-  //     );
-  //   }
-  // }
-
   Future<void> _takePhotoForField(String imageType) async {
     try {
       final pickedFile = await _imagePicker.pickImage(
@@ -532,6 +512,8 @@ class _BillFormScreenState extends State<BillFormScreen>
               break;
           }
         });
+
+        print('📸 Photo taken for $imageType');
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -570,18 +552,6 @@ class _BillFormScreenState extends State<BillFormScreen>
                   _takePhotoForField(imageType);
                 },
               ),
-              // ListTile(
-              //   leading:
-              //       const Icon(Icons.photo_library_rounded, color: photosColor),
-              //   title: Text(
-              //     'Choose from Gallery',
-              //     style: GoogleFonts.inter(fontWeight: FontWeight.w600),
-              //   ),
-              //   onTap: () {
-              //     Navigator.pop(context);
-              //     _pickImageForField(imageType);
-              //   },
-              // ),
             ],
           ),
         );
@@ -698,7 +668,7 @@ class _BillFormScreenState extends State<BillFormScreen>
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              widget.isEditMode ? 'Edit Bill' : 'New Bill Entry',
+              widget.isEditMode ? 'Update Bill' : 'New Bill Entry',
               style: GoogleFonts.poppins(
                 color: textPrimary,
                 fontWeight: FontWeight.w800,
@@ -868,7 +838,7 @@ class _BillFormScreenState extends State<BillFormScreen>
       Icons.image_rounded,
     ];
     final stepColors = [primaryColor, locationColor, specificationsColor];
-    final stepTitles = ['Basic Info', 'Location & Details', 'Images'];
+    final stepTitles = ['Basic Info', 'Property Details', 'Images'];
 
     return GestureDetector(
       child: Container(
@@ -1012,30 +982,39 @@ class _BillFormScreenState extends State<BillFormScreen>
                 const SizedBox(height: 8),
                 _buildCompactTextField(
                   controller: _municipalityNameController,
-                  label: 'Municipality Name *',
+                  label: 'Municipality Name', // ✅ * HATA DIYA
                   icon: Icons.location_city_rounded,
-                  validator: (value) =>
-                      value?.isEmpty ?? true ? 'Required' : null,
                 ),
                 const SizedBox(height: 8),
                 _buildCompactTextField(
                   controller: _propertyIdController,
-                  label: 'Property Id *',
+                  label: 'Property Id', // ✅ * HATA DIYA
                   icon: Icons.tag_rounded,
-                  validator: (value) =>
-                      value?.isEmpty ?? true ? 'Required' : null,
                 ),
                 const SizedBox(height: 8),
                 _buildCompactTextField(
                   controller: _ownerNameController,
-                  label: 'Owner/Occupier Name *',
+                  label: 'Owner/Occupier Name', // ✅ * HATA DIYA
                   icon: Icons.person_outline_rounded,
-                  validator: (value) =>
-                      value?.isEmpty ?? true ? 'Required' : null,
+                ),
+                const SizedBox(height: 8),
+                _buildCompactTextField(
+                  controller: _mobileController,
+                  label: 'Mobile No.',
+                  icon: Icons.phone_android_rounded,
+                  keyboardType: TextInputType.phone,
+                  validator: (value) {
+                    if (value != null &&
+                        value.isNotEmpty &&
+                        value.length < 10) {
+                      return 'Enter valid mobile number';
+                    }
+                    return null; // ✅ खाली भी रह सकता है
+                  },
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Note: Fill basic information and save to proceed',
+                  'Note: You can update any field. All fields are optional.', // ✅ Updated message
                   style: GoogleFonts.inter(
                     fontSize: 11,
                     color: textSecondary,
@@ -1074,92 +1053,68 @@ class _BillFormScreenState extends State<BillFormScreen>
               const SizedBox(height: 8),
               _buildCompactTextField(
                 controller: _step2PropertyIdController,
-                label: 'Property Id *',
+                label: 'Property Id', // ✅ * HATA DIYA
                 icon: Icons.tag_rounded,
-                validator: (value) =>
-                    value?.isEmpty ?? true ? 'Required' : null,
               ),
               const SizedBox(height: 8),
               _buildCompactTextField(
                 controller: _step2OwnerNameController,
-                label: 'Owner/Occupier Name *',
+                label: 'Owner/Occupier Name', // ✅ * HATA DIYA
                 icon: Icons.person_outline_rounded,
-                validator: (value) =>
-                    value?.isEmpty ?? true ? 'Required' : null,
               ),
               const SizedBox(height: 8),
               _buildCompactTextField(
                 controller: _areaOfAuthorityController,
-                label: 'Area Of the Authority *',
+                label: 'Area Of the Authority', // ✅ * HATA DIYA
                 icon: Icons.map_rounded,
-                validator: (value) =>
-                    value?.isEmpty ?? true ? 'Required' : null,
               ),
               const SizedBox(height: 8),
               _buildCompactTextField(
                 controller: _colonyNameController,
-                label: 'Name Of the Colony *',
+                label: 'Name Of the Colony', // ✅ * HATA DIYA
                 icon: Icons.landscape_rounded,
-                validator: (value) =>
-                    value?.isEmpty ?? true ? 'Required' : null,
               ),
               const SizedBox(height: 8),
               _buildCompactTextField(
                 controller: _addressController,
-                label: 'Address of Property *',
+                label: 'Address of Property', // ✅ * HATA DIYA
                 icon: Icons.home_rounded,
                 maxLines: 2,
-                validator: (value) =>
-                    value?.isEmpty ?? true ? 'Required' : null,
-              ),
-              const SizedBox(height: 8),
-              _buildCompactTextField(
-                controller: _mobileController,
-                label: 'Mobile No. *',
-                icon: Icons.phone_android_rounded,
-                keyboardType: TextInputType.phone,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Required';
-                  }
-                  if (value.length < 10) {
-                    return 'Enter valid mobile number';
-                  }
-                  return null;
-                },
               ),
               const SizedBox(height: 8),
               _buildCompactTextField(
                 controller: _categoryController,
-                label: 'Category *',
+                label: 'Category', // ✅ * HATA DIYA
                 icon: Icons.category_rounded,
-                validator: (value) =>
-                    value?.isEmpty ?? true ? 'Required' : null,
               ),
               const SizedBox(height: 8),
               _buildCompactTextField(
                 controller: _totalAreaController,
-                label: 'Total Area *',
+                label: 'Total Area', // ✅ * HATA DIYA
                 icon: Icons.aspect_ratio_rounded,
                 keyboardType: TextInputType.number,
-                validator: (value) =>
-                    value?.isEmpty ?? true ? 'Required' : null,
               ),
               const SizedBox(height: 8),
               _buildCompactTextField(
                 controller: _unitController,
-                label: 'Unit *',
+                label: 'Unit', // ✅ * HATA DIYA
                 icon: Icons.square_foot_rounded,
-                validator: (value) =>
-                    value?.isEmpty ?? true ? 'Required' : null,
               ),
               const SizedBox(height: 8),
               _buildCompactTextField(
                 controller: _authorizationStatusController,
-                label: 'Authorized Area / Unauthorized *',
+                label: 'Authorized Area / Unauthorized', // ✅ * HATA DIYA
                 icon: Icons.verified_rounded,
-                validator: (value) =>
-                    value?.isEmpty ?? true ? 'Required' : null,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Note: Update as many fields as needed. All fields are optional.', // ✅ Updated message
+                style: GoogleFonts.inter(
+                  fontSize: 11,
+                  color: textSecondary,
+                  fontStyle: FontStyle.italic,
+                ),
+                textAlign: TextAlign.center,
               ),
               const SizedBox(height: 8),
             ],
@@ -1198,10 +1153,10 @@ class _BillFormScreenState extends State<BillFormScreen>
                       children: [
                         // Front View Image Field
                         if (widget.isEditMode &&
-                            widget.bill?.propertyImages?.frontView != null &&
-                            widget.bill!.propertyImages!.frontView!.isNotEmpty)
+                            widget.bill?.frontViewUrl != null &&
+                            widget.bill!.frontViewUrl!.isNotEmpty)
                           _buildImagePreview(
-                            imageUrl: widget.bill!.propertyImages!.frontView!,
+                            imageUrl: widget.bill!.frontViewUrl!,
                             label: 'Front View Image',
                             imageType: 'front_view',
                           )
@@ -1215,10 +1170,10 @@ class _BillFormScreenState extends State<BillFormScreen>
 
                         // Side View Image Field
                         if (widget.isEditMode &&
-                            widget.bill?.propertyImages?.sideView != null &&
-                            widget.bill!.propertyImages!.sideView!.isNotEmpty)
+                            widget.bill?.sideViewUrl != null &&
+                            widget.bill!.sideViewUrl!.isNotEmpty)
                           _buildImagePreview(
-                            imageUrl: widget.bill!.propertyImages!.sideView!,
+                            imageUrl: widget.bill!.sideViewUrl!,
                             label: 'Side View Image',
                             imageType: 'side_view',
                           )
@@ -1232,10 +1187,10 @@ class _BillFormScreenState extends State<BillFormScreen>
 
                         // Additional Images Field
                         if (widget.isEditMode &&
-                            widget.bill?.propertyImages?.additional != null &&
-                            widget.bill!.propertyImages!.additional!.isNotEmpty)
+                            widget.bill?.additionalUrl != null &&
+                            widget.bill!.additionalUrl!.isNotEmpty)
                           _buildImagePreview(
-                            imageUrl: widget.bill!.propertyImages!.additional!,
+                            imageUrl: widget.bill!.additionalUrl!,
                             label: 'Additional Images',
                             imageType: 'additional',
                           )
@@ -1249,10 +1204,10 @@ class _BillFormScreenState extends State<BillFormScreen>
 
                         // Location Image Field
                         if (widget.isEditMode &&
-                            widget.bill?.propertyImages?.location != null &&
-                            widget.bill!.propertyImages!.location!.isNotEmpty)
+                            widget.bill?.locationUrl != null &&
+                            widget.bill!.locationUrl!.isNotEmpty)
                           _buildImagePreview(
-                            imageUrl: widget.bill!.propertyImages!.location!,
+                            imageUrl: widget.bill!.locationUrl!,
                             label: 'Location Image',
                             imageType: 'location',
                           )
@@ -1265,7 +1220,7 @@ class _BillFormScreenState extends State<BillFormScreen>
                         const SizedBox(height: 8),
 
                         Text(
-                          'Note: Upload images or provide image paths',
+                          'Note: Images are optional. You can add or update later.',
                           style: GoogleFonts.inter(
                             fontSize: 11,
                             color: textSecondary,
@@ -1610,7 +1565,7 @@ class _BillFormScreenState extends State<BillFormScreen>
         top: false,
         child: Row(
           children: [
-            // Save/Submit button for current step
+            // Update button for current step
             Expanded(
               child: Container(
                 height: 48,
@@ -1658,15 +1613,13 @@ class _BillFormScreenState extends State<BillFormScreen>
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Icon(
-                                widget.isEditMode
-                                    ? Icons.update_rounded
-                                    : Icons.save_rounded,
+                                Icons.update_rounded,
                                 size: 20,
                                 color: Colors.white,
                               ),
                               const SizedBox(width: 8),
                               Text(
-                                widget.isEditMode ? 'Update' : 'Save',
+                                'Update',
                                 style: GoogleFonts.inter(
                                   color: Colors.white,
                                   fontWeight: FontWeight.w700,

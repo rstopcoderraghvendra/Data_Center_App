@@ -4,7 +4,6 @@ import 'package:data_care_app/data/repositories/customer_repository.dart';
 import 'package:data_care_app/features/bill_distribution/screens/new_bill_distribution/bill_form_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:data_care_app/features/bill_distribution/screens/model/bill_model.dart';
-
 import 'package:google_fonts/google_fonts.dart';
 
 class BillDistributorScreen extends StatefulWidget {
@@ -25,7 +24,6 @@ class _BillDistributorScreenState extends State<BillDistributorScreen> {
   bool _showSearchBar = false;
   bool _isLoading = false;
   bool _hasMore = true;
-  bool _refreshingBottom = false;
 
   // Pagination variables
   int _currentPage = 0;
@@ -37,6 +35,7 @@ class _BillDistributorScreenState extends State<BillDistributorScreen> {
   @override
   void initState() {
     super.initState();
+    print('🔄 Initializing Bill Distribution Screen...');
     _repository = CustomerRepository(ApiClient(storage: LocalStorage()));
     _futureBills = _fetchBills();
     _verticalScrollController.addListener(_onScroll);
@@ -44,13 +43,19 @@ class _BillDistributorScreenState extends State<BillDistributorScreen> {
 
   Future<List<Bill>> _fetchBills() async {
     try {
+      print('📡 Fetching bills from API...');
       final data = await _repository.fetchCustomers(
           projectId: widget.projectId, sourceType: 'bill_distribution');
+
+      final bills = data.map((item) => Bill.fromJson(item)).toList();
+      print('✅ Fetched ${bills.length} bills');
+
       setState(() {
-        _allBills = data.map((item) => Bill.fromJson(item)).toList();
+        _allBills = bills;
       });
-      return _allBills;
+      return bills;
     } catch (e) {
+      print('❌ Error fetching bills: $e');
       throw Exception('Failed to load bills: $e');
     }
   }
@@ -65,11 +70,13 @@ class _BillDistributorScreenState extends State<BillDistributorScreen> {
   }
 
   Future<void> _refresh() async {
+    print('🔄 Refreshing bill list...');
     setState(() {
       _currentPage = 0;
       _futureBills = _fetchBills();
     });
     await _futureBills;
+    print('✅ Bill list refreshed');
   }
 
   Future<void> _loadMoreData() async {
@@ -93,13 +100,13 @@ class _BillDistributorScreenState extends State<BillDistributorScreen> {
 
     return _allBills.where((bill) {
       final query = _searchQuery.toLowerCase();
-      return bill.customerName.toLowerCase().contains(query) ||
-          bill.propertyDetails.toLowerCase().contains(query) ||
-          bill.mobile.toLowerCase().contains(query) ||
-          // bill.category.toLowerCase().contains(query) ||
-          bill.colony.toLowerCase().contains(query) ||
-          bill.municipality.toLowerCase().contains(query) ||
-          bill.address.toLowerCase().contains(query);
+      return (bill.name?.toLowerCase() ?? '').contains(query) ||
+          (bill.mobileNo?.toLowerCase() ?? '').contains(query) ||
+          (bill.category?.toLowerCase() ?? '').contains(query) ||
+          (bill.colonyName?.toLowerCase() ?? '').contains(query) ||
+          (bill.municipalityName?.toLowerCase() ?? '').contains(query) ||
+          (bill.addressOfProperty?.toLowerCase() ?? '').contains(query) ||
+          (bill.propertyDetailsPropertyId?.toLowerCase() ?? '').contains(query);
     }).toList();
   }
 
@@ -133,56 +140,32 @@ class _BillDistributorScreenState extends State<BillDistributorScreen> {
     });
   }
 
-  Future<void> _navigateToAddBill() async {
-    final result = await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => BillFormScreen(
-          isEditMode: false,
-          projectId: widget.projectId, // Pass projectId from widget
-        ),
-      ),
-    );
-
-    if (result != null && result is Bill) {
-      setState(() {
-        // Add new bill to the beginning of the list
-        _allBills.insert(0, result);
-        _futureBills = Future.value(_allBills); // Update future
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Bill "${result.name}" created successfully'),
-          backgroundColor: Colors.green.shade600,
-          duration: const Duration(seconds: 2),
-        ),
-      );
-    }
-  }
-
   Future<void> _navigateToEditBill(Bill bill) async {
+    print('✏️ Navigating to edit bill form for ID: ${bill.id}');
+
     final result = await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => BillFormScreen(
           bill: bill,
           isEditMode: true,
-          projectId: widget.projectId, // Pass projectId
+          projectId: widget.projectId,
+          onSaveSuccess: () {
+            // ✅ Callback for when bill is updated in form
+            print('📞 Form update callback received');
+            _refresh();
+          },
         ),
       ),
     );
 
-    if (result != null && result is Bill) {
-      setState(() {
-        final index = _allBills.indexWhere((b) => b.id == result.id);
-        if (index != -1) {
-          _allBills[index] = result;
-          _futureBills = Future.value(_allBills); // Update future
-        }
-      });
+    // ✅ Form already handled the API call, just refresh the list
+    if (result != null) {
+      print('✅ Bill updated, refreshing list...');
+      await _refresh();
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Bill "${result.name}" updated successfully'),
+          content: const Text('Bill updated successfully'),
           backgroundColor: Colors.blue.shade600,
           duration: const Duration(seconds: 2),
         ),
@@ -200,7 +183,7 @@ class _BillDistributorScreenState extends State<BillDistributorScreen> {
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
         ),
         content: Text(
-          'Are you sure you want to delete bill "${bill.id}"?',
+          'Are you sure you want to delete bill "${bill.name}"?',
           style: const TextStyle(fontSize: 14, color: Color(0xFF4A5568)),
         ),
         actions: [
@@ -212,19 +195,31 @@ class _BillDistributorScreenState extends State<BillDistributorScreen> {
             ),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(context);
-              setState(() {
-                _allBills.removeWhere((b) => b.id == bill.id);
-              });
+              try {
+                print('🗑️ Deleting bill ID: ${bill.id}');
+                // API call - Generic deleteCustomer method use karenge
+                // await _repository.deleteCustomer(bill.id);
 
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Bill "${bill.id}" deleted successfully'),
-                  backgroundColor: Colors.red.shade600,
-                  duration: const Duration(seconds: 2),
-                ),
-              );
+                setState(() {
+                  _allBills.removeWhere((b) => b.id == bill.id);
+                });
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Bill "${bill.name}" deleted successfully'),
+                    backgroundColor: Colors.red.shade600,
+                  ),
+                );
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Failed to delete bill: $e'),
+                    backgroundColor: Colors.red.shade600,
+                  ),
+                );
+              }
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red.shade600,
@@ -252,8 +247,6 @@ class _BillDistributorScreenState extends State<BillDistributorScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-
     return Scaffold(
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
@@ -314,7 +307,7 @@ class _BillDistributorScreenState extends State<BillDistributorScreen> {
                 onChanged: _onSearchChanged,
                 style: const TextStyle(fontSize: 14),
                 decoration: InputDecoration(
-                  hintText: 'Search by ID, Name, Mobile, Category...',
+                  hintText: 'Search by Bill ID, Name, Mobile...',
                   hintStyle:
                       const TextStyle(fontSize: 13, color: Color(0xFF718096)),
                   prefixIcon: const Icon(Icons.search,
@@ -349,7 +342,7 @@ class _BillDistributorScreenState extends State<BillDistributorScreen> {
               ),
             ),
           ),
-          SizedBox(height: 8),
+          const SizedBox(height: 8),
           Expanded(
             child: FutureBuilder<List<Bill>>(
               future: _futureBills,
@@ -357,16 +350,74 @@ class _BillDistributorScreenState extends State<BillDistributorScreen> {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
+
                 if (snapshot.hasError) {
                   return Center(
-                    child: Text('Error: ${snapshot.error}'),
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.error_outline,
+                              color: Colors.red, size: 50),
+                          const SizedBox(height: 10),
+                          Text(
+                            'Error loading bills',
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: Colors.grey[700],
+                            ),
+                          ),
+                          Text(
+                            '${snapshot.error}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[500],
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 20),
+                          ElevatedButton(
+                            onPressed: _refresh,
+                            child: const Text('Retry'),
+                          ),
+                        ],
+                      ),
+                    ),
                   );
                 }
+
+                if (snapshot.hasData) {
+                  _allBills = snapshot.data!;
+                }
+
                 if (_allBills.isEmpty) {
-                  return const Center(
+                  return Center(
                     child: Padding(
-                      padding: EdgeInsets.symmetric(vertical: 120),
-                      child: Text('No bills found'),
+                      padding: const EdgeInsets.symmetric(vertical: 120),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.receipt_long,
+                              color: Colors.grey[400], size: 60),
+                          const SizedBox(height: 16),
+                          const Text(
+                            'No bills found',
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: Color(0xFF718096),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          const Text(
+                            'Bill records will appear here',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Color(0xFFA0AEC0),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   );
                 }
@@ -390,11 +441,33 @@ class _BillDistributorScreenState extends State<BillDistributorScreen> {
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(12),
                     child: paginatedBills.isEmpty && _searchQuery.isNotEmpty
-                        ? const Center(
+                        ? Center(
                             child: Padding(
-                              padding: EdgeInsets.symmetric(vertical: 120),
-                              child:
-                                  Text('No bills found matching your search'),
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 120),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.search_off,
+                                      color: Colors.grey[400], size: 60),
+                                  const SizedBox(height: 16),
+                                  const Text(
+                                    'No matching bills found',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      color: Color(0xFF718096),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  const Text(
+                                    'Try a different search term',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: Color(0xFFA0AEC0),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           )
                         : Scrollbar(
@@ -408,7 +481,7 @@ class _BillDistributorScreenState extends State<BillDistributorScreen> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    // Table Header
+                                    // Table Header - Survey जैसा ही
                                     Container(
                                       padding: const EdgeInsets.symmetric(
                                         horizontal: 16,
@@ -426,9 +499,9 @@ class _BillDistributorScreenState extends State<BillDistributorScreen> {
                                       child: Row(
                                         children: [
                                           SizedBox(
-                                            width: 120,
+                                            width: 100,
                                             child: Text(
-                                              'Municipality Name',
+                                              'Municipality',
                                               style: TextStyle(
                                                 fontWeight: FontWeight.w600,
                                                 color: const Color(0xFF2D3748),
@@ -438,13 +511,13 @@ class _BillDistributorScreenState extends State<BillDistributorScreen> {
                                           ),
                                           const SizedBox(width: 20),
                                           SizedBox(
-                                            width: 80,
+                                            width: 100,
                                             child: Text(
                                               'Property ID',
                                               style: TextStyle(
                                                 fontWeight: FontWeight.w600,
                                                 color: const Color(0xFF2D3748),
-                                                fontSize: 12,
+                                                fontSize: 11,
                                               ),
                                             ),
                                           ),
@@ -462,9 +535,56 @@ class _BillDistributorScreenState extends State<BillDistributorScreen> {
                                           ),
                                           const SizedBox(width: 20),
                                           SizedBox(
-                                            width: 100,
+                                            width: 120,
                                             child: Text(
-                                              'Property Details',
+                                              'Property ID ',
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.w600,
+                                                color: const Color(0xFF2D3748),
+                                                fontSize: 11,
+                                              ),
+                                            ),
+                                          ),
+                                          SizedBox(
+                                            width: 120,
+                                            child: Text(
+                                              'Owner/ Occupier Name',
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.w600,
+                                                color: const Color(0xFF2D3748),
+                                                fontSize: 11,
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 20),
+                                          SizedBox(
+                                            width: 120,
+                                            child: Text(
+                                              'Area Of the Authority',
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.w600,
+                                                color: const Color(0xFF2D3748),
+                                                fontSize: 11,
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 20),
+                                          SizedBox(
+                                            width: 120,
+                                            child: Text(
+                                              'Name Of the Colony',
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.w600,
+                                                color: const Color(0xFF2D3748),
+                                                fontSize: 11,
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 20),
+                                          SizedBox(
+                                            width: 150,
+                                            child: Text(
+                                              'Address of Property',
                                               style: TextStyle(
                                                 fontWeight: FontWeight.w600,
                                                 color: const Color(0xFF2D3748),
@@ -477,18 +597,6 @@ class _BillDistributorScreenState extends State<BillDistributorScreen> {
                                             width: 100,
                                             child: Text(
                                               'Mobile No.',
-                                              style: TextStyle(
-                                                fontWeight: FontWeight.w600,
-                                                color: const Color(0xFF2D3748),
-                                                fontSize: 11,
-                                              ),
-                                            ),
-                                          ),
-                                          const SizedBox(width: 20),
-                                          SizedBox(
-                                            width: 150,
-                                            child: Text(
-                                              'Address',
                                               style: TextStyle(
                                                 fontWeight: FontWeight.w600,
                                                 color: const Color(0xFF2D3748),
@@ -561,270 +669,355 @@ class _BillDistributorScreenState extends State<BillDistributorScreen> {
                                       ),
                                     ),
 
-                                    // Table Rows
+                                    // Table Rows - Survey जैसा ही
                                     ...paginatedBills.map((bill) {
-                                      return Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 16,
-                                          vertical: 12,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          border: Border(
-                                            bottom: BorderSide(
-                                              color: Colors.grey.shade200,
-                                              width: 1,
+                                      return GestureDetector(
+                                        onTap: () => _navigateToEditBill(bill),
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 16,
+                                            vertical: 12,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            border: Border(
+                                              bottom: BorderSide(
+                                                color: Colors.grey.shade200,
+                                                width: 1,
+                                              ),
                                             ),
                                           ),
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            SizedBox(
-                                              width: 120,
-                                              child: Text(
-                                                bill.municipality,
-                                                style: textTheme.bodySmall
-                                                    ?.copyWith(
-                                                  fontFamily:
-                                                      GoogleFonts.poppins()
-                                                          .fontFamily,
-                                                  fontSize: 11,
-                                                ),
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 20),
-                                            SizedBox(
-                                              width: 80,
-                                              child: Text(
-                                                bill.propertyDetailsPropertyId ??
-                                                    '-',
-                                                style: textTheme.bodySmall
-                                                    ?.copyWith(
-                                                  fontFamily:
-                                                      GoogleFonts.poppins()
-                                                          .fontFamily,
-                                                  fontSize: 11,
-                                                ),
-                                              ),
-                                            ),
-                                            const SizedBox(width: 20),
-                                            SizedBox(
-                                              width: 120,
-                                              child: Text(
-                                                bill.customerName,
-                                                style: textTheme.bodySmall
-                                                    ?.copyWith(
-                                                  fontFamily:
-                                                      GoogleFonts.poppins()
-                                                          .fontFamily,
-                                                  fontSize: 11,
-                                                ),
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 20),
-                                            SizedBox(
-                                              width: 100,
-                                              child: Text(
-                                                bill.propertyDetails,
-                                                style: textTheme.bodySmall
-                                                    ?.copyWith(
-                                                  fontFamily:
-                                                      GoogleFonts.poppins()
-                                                          .fontFamily,
-                                                  fontSize: 11,
-                                                ),
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 20),
-                                            SizedBox(
-                                              width: 100,
-                                              child: Text(
-                                                bill.mobile,
-                                                style: textTheme.bodySmall
-                                                    ?.copyWith(
-                                                  fontFamily:
-                                                      GoogleFonts.poppins()
-                                                          .fontFamily,
-                                                  fontSize: 11,
-                                                ),
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 20),
-                                            SizedBox(
-                                              width: 150,
-                                              child: Text(
-                                                bill.address.length > 20
-                                                    ? '${bill.address.substring(0, 20)}...'
-                                                    : bill.address,
-                                                style: textTheme.bodySmall
-                                                    ?.copyWith(
-                                                  fontFamily:
-                                                      GoogleFonts.poppins()
-                                                          .fontFamily,
-                                                  fontSize: 11,
-                                                ),
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 20),
-                                            SizedBox(
-                                              width: 100,
-                                              child: Text(
-                                                bill.category ?? '-',
-                                                style: textTheme.bodySmall
-                                                    ?.copyWith(
-                                                  fontFamily:
-                                                      GoogleFonts.poppins()
-                                                          .fontFamily,
-                                                  fontSize: 11,
-                                                  color:
-                                                      const Color(0xFF2D3748),
-                                                ),
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 20),
-                                            SizedBox(
-                                              width: 100,
-                                              child: Text(
-                                                bill.totalArea ?? '-',
-                                                style: textTheme.bodySmall
-                                                    ?.copyWith(
-                                                  fontFamily:
-                                                      GoogleFonts.poppins()
-                                                          .fontFamily,
-                                                  fontSize: 11,
-                                                  color:
-                                                      const Color(0xFF2D3748),
-                                                ),
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 20),
-                                            SizedBox(
-                                              width: 100,
-                                              child: Text(
-                                                bill.unit ?? '-',
-                                                style: textTheme.bodySmall
-                                                    ?.copyWith(
-                                                  fontFamily:
-                                                      GoogleFonts.poppins()
-                                                          .fontFamily,
-                                                  fontSize: 11,
-                                                  color:
-                                                      const Color(0xFF2D3748),
-                                                ),
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 20),
-                                            SizedBox(
-                                              width: 100,
-                                              child: Container(
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                  horizontal: 8,
-                                                  vertical: 4,
-                                                ),
-                                                decoration: BoxDecoration(
-                                                  color:
-                                                      bill.authorizationStatus ==
-                                                              'Approved'
-                                                          ? Colors.green.shade50
-                                                          : Colors.red.shade50,
-                                                  borderRadius:
-                                                      BorderRadius.circular(4),
-                                                ),
+                                          child: Row(
+                                            children: [
+                                              SizedBox(
+                                                width: 100,
                                                 child: Text(
-                                                  bill.authorizationStatus ??
+                                                  bill.municipalityName ?? '-',
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    color:
+                                                        const Color(0xFF4A5568),
+                                                    fontFamily:
+                                                        GoogleFonts.poppins()
+                                                            .fontFamily,
+                                                  ),
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 20),
+                                              SizedBox(
+                                                width: 100,
+                                                child: Text(
+                                                  bill.propertyDetailsPropertyId ??
                                                       '-',
                                                   style: TextStyle(
-                                                    fontSize: 10,
-                                                    fontWeight: FontWeight.w600,
+                                                    fontSize: 11,
+                                                    color:
+                                                        const Color(0xFF4A5568),
+                                                    fontFamily:
+                                                        GoogleFonts.poppins()
+                                                            .fontFamily,
+                                                  ),
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 20),
+                                              SizedBox(
+                                                width: 120,
+                                                child: Text(
+                                                  bill.name ?? '-',
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    color:
+                                                        const Color(0xFF4A5568),
+                                                    fontFamily:
+                                                        GoogleFonts.poppins()
+                                                            .fontFamily,
+                                                  ),
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 20),
+                                              SizedBox(
+                                                width: 120,
+                                                child: Text(
+                                                  bill.integratedPidPropertyId ??
+                                                      '-',
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    color:
+                                                        const Color(0xFF4A5568),
+                                                    fontFamily:
+                                                        GoogleFonts.poppins()
+                                                            .fontFamily,
+                                                  ),
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                              SizedBox(
+                                                width: 120,
+                                                child: Text(
+                                                  bill.integratedPidOwnerOccupierName ??
+                                                      '-',
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    color:
+                                                        const Color(0xFF4A5568),
+                                                    fontFamily:
+                                                        GoogleFonts.poppins()
+                                                            .fontFamily,
+                                                  ),
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 20),
+                                              SizedBox(
+                                                width: 120,
+                                                child: Text(
+                                                  bill.areaOfAuthority ?? '-',
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    color:
+                                                        const Color(0xFF4A5568),
+                                                    fontFamily:
+                                                        GoogleFonts.poppins()
+                                                            .fontFamily,
+                                                  ),
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 20),
+                                              SizedBox(
+                                                width: 120,
+                                                child: Text(
+                                                  bill.colonyName ?? '-',
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    color:
+                                                        const Color(0xFF4A5568),
+                                                    fontFamily:
+                                                        GoogleFonts.poppins()
+                                                            .fontFamily,
+                                                  ),
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 20),
+                                              SizedBox(
+                                                width: 150,
+                                                child: Text(
+                                                  (bill.addressOfProperty
+                                                                  ?.length ??
+                                                              0) >
+                                                          20
+                                                      ? '${bill.addressOfProperty?.substring(0, 20)}...'
+                                                      : bill.addressOfProperty ??
+                                                          '-',
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    color:
+                                                        const Color(0xFF4A5568),
+                                                    fontFamily:
+                                                        GoogleFonts.poppins()
+                                                            .fontFamily,
+                                                  ),
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 20),
+                                              SizedBox(
+                                                width: 100,
+                                                child: Text(
+                                                  bill.mobileNo ?? '-',
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    color:
+                                                        const Color(0xFF4A5568),
+                                                    fontFamily:
+                                                        GoogleFonts.poppins()
+                                                            .fontFamily,
+                                                  ),
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 20),
+                                              SizedBox(
+                                                width: 100,
+                                                child: Text(
+                                                  bill.category ?? '-',
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    color:
+                                                        const Color(0xFF4A5568),
+                                                    fontFamily:
+                                                        GoogleFonts.poppins()
+                                                            .fontFamily,
+                                                  ),
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 20),
+                                              SizedBox(
+                                                width: 100,
+                                                child: Text(
+                                                  bill.totalArea ?? '-',
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    color:
+                                                        const Color(0xFF4A5568),
+                                                    fontFamily:
+                                                        GoogleFonts.poppins()
+                                                            .fontFamily,
+                                                  ),
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 20),
+                                              SizedBox(
+                                                width: 100,
+                                                child: Text(
+                                                  bill.unit ?? '-',
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    color:
+                                                        const Color(0xFF4A5568),
+                                                    fontFamily:
+                                                        GoogleFonts.poppins()
+                                                            .fontFamily,
+                                                  ),
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 20),
+                                              SizedBox(
+                                                width: 100,
+                                                child: Container(
+                                                  padding: const EdgeInsets
+                                                      .symmetric(
+                                                    horizontal: 8,
+                                                    vertical: 4,
+                                                  ),
+                                                  decoration: BoxDecoration(
                                                     color:
                                                         bill.authorizationStatus ==
                                                                 'Approved'
                                                             ? Colors
-                                                                .green.shade800
+                                                                .green.shade50
                                                             : Colors
-                                                                .red.shade800,
+                                                                .red.shade50,
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            4),
                                                   ),
-                                                  textAlign: TextAlign.center,
-                                                  maxLines: 1,
+                                                  child: Text(
+                                                    bill.authorizationStatus ??
+                                                        '-',
+                                                    style: TextStyle(
+                                                      fontSize: 10,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                      color:
+                                                          bill.authorizationStatus ==
+                                                                  'Approved'
+                                                              ? Colors.green
+                                                                  .shade800
+                                                              : Colors
+                                                                  .red.shade800,
+                                                    ),
+                                                    textAlign: TextAlign.center,
+                                                    maxLines: 1,
+                                                  ),
                                                 ),
                                               ),
-                                            ),
-                                            const SizedBox(width: 20),
-                                            SizedBox(
-                                              width: 80,
-                                              child: Row(
-                                                mainAxisAlignment:
-                                                    MainAxisAlignment.center,
-                                                children: [
-                                                  Container(
-                                                    width: 28,
-                                                    height: 28,
-                                                    decoration: BoxDecoration(
-                                                      color:
-                                                          Colors.blue.shade50,
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                              6),
-                                                    ),
-                                                    child: IconButton(
-                                                      onPressed: () =>
-                                                          _navigateToEditBill(
-                                                              bill),
-                                                      icon: Icon(
-                                                        Icons.menu,
-                                                        size: 14,
-                                                        color: Colors
-                                                            .blue.shade700,
-                                                      ),
-                                                      padding: EdgeInsets.zero,
-                                                      tooltip: 'Edit',
-                                                    ),
-                                                  ),
-                                                  const SizedBox(width: 8),
-                                                  Container(
-                                                    width: 28,
-                                                    height: 28,
-                                                    decoration: BoxDecoration(
-                                                      color: Colors.red.shade50,
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                              6),
-                                                    ),
-                                                    child: IconButton(
-                                                      onPressed: () {
-                                                        _showDeleteDialog(
-                                                            context, bill);
-                                                      },
-                                                      icon: Icon(
-                                                        Icons.delete_rounded,
-                                                        size: 14,
+                                              const SizedBox(width: 20),
+                                              SizedBox(
+                                                width: 80,
+                                                child: Row(
+                                                  mainAxisAlignment:
+                                                      MainAxisAlignment.center,
+                                                  children: [
+                                                    // Edit Button
+                                                    Container(
+                                                      width: 28,
+                                                      height: 28,
+                                                      decoration: BoxDecoration(
                                                         color:
-                                                            Colors.red.shade700,
+                                                            Colors.blue.shade50,
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(6),
                                                       ),
-                                                      padding: EdgeInsets.zero,
-                                                      tooltip: 'Delete',
+                                                      child: IconButton(
+                                                        onPressed: () =>
+                                                            _navigateToEditBill(
+                                                                bill),
+                                                        icon: Icon(
+                                                          Icons.menu,
+                                                          size: 14,
+                                                          color: Colors
+                                                              .blue.shade700,
+                                                        ),
+                                                        padding:
+                                                            EdgeInsets.zero,
+                                                        tooltip: 'Edit',
+                                                      ),
                                                     ),
-                                                  ),
-                                                ],
+                                                    const SizedBox(width: 8),
+                                                    // Delete Button
+                                                    Container(
+                                                      width: 28,
+                                                      height: 28,
+                                                      decoration: BoxDecoration(
+                                                        color:
+                                                            Colors.red.shade50,
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(6),
+                                                      ),
+                                                      child: IconButton(
+                                                        onPressed: () {
+                                                          _showDeleteDialog(
+                                                              context, bill);
+                                                        },
+                                                        icon: Icon(
+                                                          Icons.delete_rounded,
+                                                          size: 14,
+                                                          color: Colors
+                                                              .red.shade700,
+                                                        ),
+                                                        padding:
+                                                            EdgeInsets.zero,
+                                                        tooltip: 'Delete',
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
                                               ),
-                                            ),
-                                          ],
+                                            ],
+                                          ),
                                         ),
                                       );
                                     }).toList(),
@@ -866,7 +1059,7 @@ class _BillDistributorScreenState extends State<BillDistributorScreen> {
           const SizedBox(height: 8),
         ],
       ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+      // ✅ FLOATING ACTION BUTTON HATA DIYA - CREATE NEW NAHI HONA CHAHIYE
     );
   }
 }

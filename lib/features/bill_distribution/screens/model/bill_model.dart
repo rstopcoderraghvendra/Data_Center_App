@@ -1,166 +1,167 @@
 class Bill {
-  final int? id;
-  final int? projectId;
-  final String name; // API uses 'name' not 'customer_name'
-
-  final String municipality;
-  final String? propertyDetailsPropertyId;
-  final String? integratedPidPropertyId;
-  final String? integratedPidOwnerOccupierName;
-  final String? areaOfAuthority;
-  final String colony;
-  final String address;
-  final String mobile;
-  final String? category;
-  final String? totalArea;
-  final String? unit;
-  final String? authorizationStatus;
-  final PropertyImages? propertyImages; // Updated for property_images object
-  final String? propertyImageUrl;
-  final String sourceType;
-  final int? createdBy;
-  final bool? isActive;
-  final DateTime? createdAt;
-  final DateTime? updatedAt;
-  final DateTime? deletedAt;
+  int? id;
+  int? projectId;
+  String? name;
+  String? municipalityName;
+  String? propertyDetailsPropertyId;
+  String? integratedPidPropertyId;
+  String? integratedPidOwnerOccupierName;
+  String? areaOfAuthority;
+  String? colonyName;
+  String? addressOfProperty;
+  String? mobileNo;
+  String? category;
+  String? totalArea;
+  String? unit;
+  String? authorizationStatus;
+  String? propertyImageUrl;
+  String? sourceType;
+  int? createdBy;
+  bool? isActive;
+  String? createdAt;
+  String? updatedAt;
+  String? deletedAt;
+  String? frontView;
+  String? sideView;
+  String? additional;
+  String? location;
+  String? frontViewUrl;
+  String? sideViewUrl;
+  String? additionalUrl;
+  String? locationUrl;
 
   Bill({
     this.id,
     this.projectId,
-    required this.name,
-    required this.municipality,
+    this.name,
+    this.municipalityName,
     this.propertyDetailsPropertyId,
     this.integratedPidPropertyId,
     this.integratedPidOwnerOccupierName,
     this.areaOfAuthority,
-    required this.colony,
-    required this.address,
-    required this.mobile,
+    this.colonyName,
+    this.addressOfProperty,
+    this.mobileNo,
     this.category,
     this.totalArea,
     this.unit,
     this.authorizationStatus,
-    this.propertyImages,
     this.propertyImageUrl,
-    required this.sourceType,
+    this.sourceType,
     this.createdBy,
     this.isActive,
     this.createdAt,
     this.updatedAt,
     this.deletedAt,
+    this.frontView,
+    this.sideView,
+    this.additional,
+    this.location,
+    this.frontViewUrl,
+    this.sideViewUrl,
+    this.additionalUrl,
+    this.locationUrl,
   });
 
-  // Getters for compatibility with existing code
-  String get customerName => name;
-  String get propertyDetails => propertyDetailsPropertyId ?? '';
-  String get integratedPid => integratedPidPropertyId ?? '';
-  String get integratedOwner => integratedPidOwnerOccupierName ?? '';
-
   factory Bill.fromJson(Map<String, dynamic> json) {
-    try {
-      // Parse property_images object
-      PropertyImages? propertyImages;
-      if (json['property_images'] != null) {
-        if (json['property_images'] is Map) {
-          propertyImages = PropertyImages.fromJson(
-              Map<String, dynamic>.from(json['property_images']));
-        } else if (json['property_images'] is List) {
-          // Handle empty array case
-          if ((json['property_images'] as List).isEmpty) {
-            propertyImages = null;
-          }
-        }
-      }
-
-      return Bill(
-        id: _parseInt(json['id']),
-        projectId: _parseInt(json['project_id']),
-        name: json['name']?.toString() ?? '',
-        municipality: json['municipality_name']?.toString() ?? '',
-        propertyDetailsPropertyId:
-            json['property_details_property_id']?.toString(),
-        integratedPidPropertyId: json['integrated_pid_property_id']?.toString(),
-        integratedPidOwnerOccupierName:
-            json['integrated_pid_owner_occupier_name']?.toString(),
-        areaOfAuthority: json['area_of_authority']?.toString(),
-        colony: json['colony_name']?.toString() ?? '-',
-        address: json['address_of_property']?.toString() ?? '-',
-        mobile: json['mobile_no']?.toString() ?? '-',
-        category: json['category']?.toString() ?? '-',
-        totalArea: json['total_area']?.toString() ?? '',
-        unit: json['unit']?.toString() ?? '-',
-        authorizationStatus:
-            json['authorization_status']?.toString()?.toLowerCase() ??
-                'pending',
-        propertyImages: propertyImages,
-        propertyImageUrl: json['property_image_url']?.toString(),
-        sourceType: json['source_type']?.toString() ?? 'bill_distribution',
-        createdBy: _parseInt(json['created_by']),
-        isActive: json['is_active'] as bool? ?? true,
-        createdAt: json['created_at'] != null
-            ? DateTime.tryParse(json['created_at'].toString())
-            : null,
-        updatedAt: json['updated_at'] != null
-            ? DateTime.tryParse(json['updated_at'].toString())
-            : null,
-        deletedAt: json['deleted_at'] != null
-            ? DateTime.tryParse(json['deleted_at'].toString())
-            : null,
-      );
-    } catch (e, stackTrace) {
-      print('Error parsing Bill from JSON: $e');
-      print('JSON: $json');
-      print('Stack trace: $stackTrace');
-      rethrow;
-    }
-  }
-
-  static int? _parseInt(dynamic value) {
-    if (value == null) return null;
-    if (value is int) return value;
-    if (value is String) {
-      return int.tryParse(value);
-    }
-    if (value is num) {
-      return value.toInt();
-    }
-    return null;
+    return Bill(
+      id: json['id'],
+      projectId: json['project_id'],
+      name: json['name'],
+      municipalityName: json['municipality_name'],
+      propertyDetailsPropertyId: json['property_details_property_id'],
+      integratedPidPropertyId: json['integrated_pid_property_id'],
+      integratedPidOwnerOccupierName:
+          json['integrated_pid_owner_occupier_name'],
+      areaOfAuthority: json['area_of_authority'],
+      colonyName: json['colony_name'],
+      addressOfProperty: json['address_of_property'],
+      mobileNo: json['mobile_no'],
+      category: json['category'],
+      totalArea: json['total_area'],
+      unit: json['unit'],
+      authorizationStatus: json['authorization_status'],
+      propertyImageUrl: json['property_image_url'],
+      sourceType: json['source_type'],
+      createdBy: json['created_by'],
+      isActive: json['is_active'],
+      createdAt: json['created_at'],
+      updatedAt: json['updated_at'],
+      deletedAt: json['deleted_at'],
+      frontView: json['front_view'],
+      sideView: json['side_view'],
+      additional: json['additional'],
+      location: json['location'],
+      frontViewUrl: json['front_view_url'],
+      sideViewUrl: json['side_view_url'],
+      additionalUrl: json['additional_url'],
+      locationUrl: json['location_url'],
+    );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      if (id != null) 'id': id,
-      if (projectId != null) 'project_id': projectId,
+      'id': id,
+      'project_id': projectId,
       'name': name,
-      'municipality_name': municipality,
-      if (propertyDetailsPropertyId != null)
-        'property_details_property_id': propertyDetailsPropertyId,
-      if (integratedPidPropertyId != null)
-        'integrated_pid_property_id': integratedPidPropertyId,
-      if (integratedPidOwnerOccupierName != null)
-        'integrated_pid_owner_occupier_name': integratedPidOwnerOccupierName,
-      if (areaOfAuthority != null) 'area_of_authority': areaOfAuthority,
-      'colony_name': colony,
-      'address_of_property': address,
-      'mobile_no': mobile,
-      if (category != null) 'category': category,
-      if (totalArea != null) 'total_area': totalArea,
-      if (unit != null) 'unit': unit,
-      if (authorizationStatus != null)
-        'authorization_status': authorizationStatus,
-      if (propertyImages != null) 'property_images': propertyImages!.toJson(),
-      if (propertyImageUrl != null) 'property_image_url': propertyImageUrl,
+      'municipality_name': municipalityName,
+      'property_details_property_id': propertyDetailsPropertyId,
+      'integrated_pid_property_id': integratedPidPropertyId,
+      'integrated_pid_owner_occupier_name': integratedPidOwnerOccupierName,
+      'area_of_authority': areaOfAuthority,
+      'colony_name': colonyName,
+      'address_of_property': addressOfProperty,
+      'mobile_no': mobileNo,
+      'category': category,
+      'total_area': totalArea,
+      'unit': unit,
+      'authorization_status': authorizationStatus,
+      'property_image_url': propertyImageUrl,
       'source_type': sourceType,
-      if (createdBy != null) 'created_by': createdBy,
-      if (isActive != null) 'is_active': isActive,
-      if (createdAt != null) 'created_at': createdAt!.toIso8601String(),
-      if (updatedAt != null) 'updated_at': updatedAt!.toIso8601String(),
-      if (deletedAt != null) 'deleted_at': deletedAt!.toIso8601String(),
+      'created_by': createdBy,
+      'is_active': isActive,
+      'created_at': createdAt,
+      'updated_at': updatedAt,
+      'deleted_at': deletedAt,
+      'front_view': frontView,
+      'side_view': sideView,
+      'additional': additional,
+      'location': location,
+      'front_view_url': frontViewUrl,
+      'side_view_url': sideViewUrl,
+      'additional_url': additionalUrl,
+      'location_url': locationUrl,
     };
+  }
+
+  // Helper getters for backward compatibility with your existing code
+  String get customerName => name ?? '';
+  String get municipality => municipalityName ?? '';
+  String get propertyDetails => propertyDetailsPropertyId ?? '';
+  String get integratedPid => integratedPidPropertyId ?? '';
+  String get integratedOwner => integratedPidOwnerOccupierName ?? '';
+  String get colony => colonyName ?? '';
+  String get address => addressOfProperty ?? '';
+  String get mobile => mobileNo ?? '';
+
+  // Getter for property images
+  PropertyImages? get propertyImages {
+    if (frontViewUrl == null &&
+        sideViewUrl == null &&
+        additionalUrl == null &&
+        locationUrl == null) {
+      return null;
+    }
+    return PropertyImages(
+      frontView: frontViewUrl,
+      sideView: sideViewUrl,
+      additional: additionalUrl,
+      location: locationUrl,
+    );
   }
 }
 
-// PropertyImages model class
+// PropertyImages model for image URLs
 class PropertyImages {
   final String? frontView;
   final String? sideView;
@@ -174,24 +175,6 @@ class PropertyImages {
     this.location,
   });
 
-  factory PropertyImages.fromJson(Map<String, dynamic> json) {
-    return PropertyImages(
-      frontView: json['front_view']?.toString(),
-      sideView: json['side_view']?.toString(),
-      additional: json['additional']?.toString(),
-      location: json['location']?.toString(),
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      if (frontView != null) 'front_view': frontView,
-      if (sideView != null) 'side_view': sideView,
-      if (additional != null) 'additional': additional,
-      if (location != null) 'location': location,
-    };
-  }
-
   bool get isEmpty =>
       (frontView == null || frontView!.isEmpty) &&
       (sideView == null || sideView!.isEmpty) &&
@@ -199,61 +182,23 @@ class PropertyImages {
       (location == null || location!.isEmpty);
 
   bool get isNotEmpty => !isEmpty;
-
-  List<String> get allImages {
-    final List<String> images = [];
-    if (frontView != null && frontView!.isNotEmpty) images.add(frontView!);
-    if (sideView != null && sideView!.isNotEmpty) images.add(sideView!);
-    if (additional != null && additional!.isNotEmpty) images.add(additional!);
-    if (location != null && location!.isNotEmpty) images.add(location!);
-    return images;
-  }
-
-  // Helper method to get image by type
-  String? getImage(String type) {
-    switch (type) {
-      case 'front_view':
-        return frontView;
-      case 'side_view':
-        return sideView;
-      case 'additional':
-        return additional;
-      case 'location':
-        return location;
-      default:
-        return null;
-    }
-  }
 }
 
-// BillListResponse model for paginated response
-class BillListResponse {
+// Response model for paginated API response
+class BillResponse {
   final List<Bill> data;
   final Pagination pagination;
 
-  BillListResponse({
+  BillResponse({
     required this.data,
     required this.pagination,
   });
 
-  factory BillListResponse.fromJson(Map<String, dynamic> json) {
-    final List<dynamic> dataList = json['data'] ?? [];
-    final List<Bill> bills = dataList.map((item) {
-      return Bill.fromJson(Map<String, dynamic>.from(item));
-    }).toList();
-
-    return BillListResponse(
-      data: bills,
-      pagination: Pagination.fromJson(
-          Map<String, dynamic>.from(json['pagination'] ?? {})),
+  factory BillResponse.fromJson(Map<String, dynamic> json) {
+    return BillResponse(
+      data: (json['data'] as List).map((item) => Bill.fromJson(item)).toList(),
+      pagination: Pagination.fromJson(json['pagination']),
     );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'data': data.map((bill) => bill.toJson()).toList(),
-      'pagination': pagination.toJson(),
-    };
   }
 }
 
@@ -273,21 +218,10 @@ class Pagination {
 
   factory Pagination.fromJson(Map<String, dynamic> json) {
     return Pagination(
-      currentPage: json['current_page'] as int? ?? 1,
-      lastPage: json['last_page'] as int? ?? 1,
-      perPage: json['per_page'] as int? ?? 50,
-      total: json['total'] as int? ?? 0,
+      currentPage: json['current_page'] ?? 1,
+      lastPage: json['last_page'] ?? 1,
+      perPage: json['per_page'] ?? 50,
+      total: json['total'] ?? 0,
     );
   }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'current_page': currentPage,
-      'last_page': lastPage,
-      'per_page': perPage,
-      'total': total,
-    };
-  }
-
-  bool get hasMore => currentPage < lastPage;
 }

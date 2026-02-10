@@ -42,13 +42,14 @@ class _SurveyListScreenState extends State<SurveyListScreen> {
 
   Future<List<Survey>> _fetchSurveys() async {
     try {
+      print('🔄 Fetching surveys...');
       final data = await _repository.fetchCustomers(
           projectId: widget.projectId, sourceType: 'survey');
-      setState(() {
-        _allSurveys = data.map((item) => Survey.fromJson(item)).toList();
-      });
-      return _allSurveys;
+      final surveys = data.map((item) => Survey.fromJson(item)).toList();
+      print('✅ Fetched ${surveys.length} surveys');
+      return surveys;
     } catch (e) {
+      print('❌ Error fetching surveys: $e');
       throw Exception('Failed to load surveys: $e');
     }
   }
@@ -63,11 +64,13 @@ class _SurveyListScreenState extends State<SurveyListScreen> {
   }
 
   Future<void> _refresh() async {
+    print('🔄 Refreshing survey list...');
     setState(() {
       _currentPage = 0;
       _futureSurveys = _fetchSurveys();
     });
     await _futureSurveys;
+    print('✅ Survey list refreshed');
   }
 
   Future<void> _loadMoreData() async {
@@ -96,7 +99,9 @@ class _SurveyListScreenState extends State<SurveyListScreen> {
           (survey.category?.toLowerCase() ?? '').contains(query) ||
           (survey.colonyName?.toLowerCase() ?? '').contains(query) ||
           (survey.municipalityName?.toLowerCase() ?? '').contains(query) ||
-          (survey.addressOfProperty?.toLowerCase() ?? '').contains(query);
+          (survey.addressOfProperty?.toLowerCase() ?? '').contains(query) ||
+          (survey.propertyDetailsPropertyId?.toLowerCase() ?? '')
+              .contains(query);
     }).toList();
   }
 
@@ -131,134 +136,67 @@ class _SurveyListScreenState extends State<SurveyListScreen> {
   }
 
   Future<void> _navigateToAddSurvey() async {
+    print('🆕 Navigating to add survey form...');
+
     final result = await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => SurveyFormScreen(
           isEditMode: false,
           projectId: widget.projectId,
+          onSaveSuccess: () {
+            // ✅ Callback for when survey is saved in form
+            print('📞 Form saved callback received');
+            _refresh();
+          },
         ),
       ),
     );
 
-    if (result != null && result is Survey) {
-      try {
-        // Prepare data for API - Add mode
-        final surveyData = {
-          'name': result.name,
-          'municipality_name': result.municipalityName,
-          'property_details_property_id': result.propertyDetailsPropertyId,
-          'integrated_pid_property_id': result.integratedPidPropertyId,
-          'integrated_pid_owner_occupier_name':
-              result.integratedPidOwnerOccupierName,
-          'area_of_authority': result.areaOfAuthority,
-          'colony_name': result.colonyName,
-          'address_of_property': result.addressOfProperty,
-          'mobile_no': result.mobileNo,
-          'category': result.category,
-          'total_area': result.totalArea,
-          'unit': result.unit,
-          'authorization_status': result.authorizationStatus,
-          'source_type': 'survey', // Important: Yeh survey hai
-          'is_active': true, // New surveys are active by default
-        };
+    // ✅ Form already handled the API call, just refresh the list
+    if (result != null) {
+      print('✅ Survey form completed, refreshing list...');
+      await _refresh();
 
-        // API call - Generic createCustomer method use karenge
-        final response = await _repository.createCustomer(
-          projectId: widget.projectId!,
-          data: surveyData,
-        );
-        // Convert response to Survey object
-        final createdSurvey = Survey.fromJson(response);
-
-        setState(() {
-          _allSurveys.insert(0, createdSurvey);
-        });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content:
-                Text('Survey "${createdSurvey.name}" created successfully'),
-            backgroundColor: Colors.green.shade600,
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to create survey: $e'),
-            backgroundColor: Colors.red.shade600,
-          ),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Survey created successfully'),
+          backgroundColor: Colors.green.shade600,
+          duration: const Duration(seconds: 2),
+        ),
+      );
     }
   }
 
   Future<void> _navigateToEditSurvey(Survey survey) async {
+    print('✏️ Navigating to edit survey form for ID: ${survey.id}');
+
     final result = await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => SurveyFormScreen(
           survey: survey,
           isEditMode: true,
           projectId: widget.projectId,
+          onSaveSuccess: () {
+            // ✅ Callback for when survey is updated in form
+            print('📞 Form update callback received');
+            _refresh();
+          },
         ),
       ),
     );
 
-    if (result != null && result is Survey) {
-      try {
-        // Prepare data for API - Edit mode
-        final surveyData = {
-          'name': result.name,
-          'municipality_name': result.municipalityName,
-          'property_details_property_id': result.propertyDetailsPropertyId,
-          'integrated_pid_property_id': result.integratedPidPropertyId,
-          'integrated_pid_owner_occupier_name':
-              result.integratedPidOwnerOccupierName,
-          'area_of_authority': result.areaOfAuthority,
-          'colony_name': result.colonyName,
-          'address_of_property': result.addressOfProperty,
-          'mobile_no': result.mobileNo,
-          'category': result.category,
-          'total_area': result.totalArea,
-          'unit': result.unit,
-          'authorization_status': result.authorizationStatus,
-          'is_active': result.isActive,
-          'source_type': 'survey',
-          // source_type update nahi karenge kyunki woh pehle se set hai
-        };
+    // ✅ Form already handled the API call, just refresh the list
+    if (result != null) {
+      print('✅ Survey updated, refreshing list...');
+      await _refresh();
 
-        // API call - Generic updateCustomer method use karenge
-        final response = await _repository.updateCustomer(
-          result.id, // Survey ID
-          surveyData,
-        );
-
-        // Convert response to Survey object
-        final updatedSurvey = Survey.fromJson(response);
-
-        setState(() {
-          final index = _allSurveys.indexWhere((s) => s.id == updatedSurvey.id);
-          if (index != -1) {
-            _allSurveys[index] = updatedSurvey;
-          }
-        });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content:
-                Text('Survey "${updatedSurvey.name}" updated successfully'),
-            backgroundColor: Colors.blue.shade600,
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to update survey: $e'),
-            backgroundColor: Colors.red.shade600,
-          ),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Survey updated successfully'),
+          backgroundColor: Colors.blue.shade600,
+          duration: const Duration(seconds: 2),
+        ),
+      );
     }
   }
 
@@ -287,6 +225,7 @@ class _SurveyListScreenState extends State<SurveyListScreen> {
             onPressed: () async {
               Navigator.pop(context);
               try {
+                print('🗑️ Deleting survey ID: ${survey.id}');
                 // API call - Generic deleteCustomer method use karenge
                 //await _repository.deleteCustomer(survey.id);
 
@@ -336,8 +275,6 @@ class _SurveyListScreenState extends State<SurveyListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-
     return Scaffold(
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
@@ -441,16 +378,74 @@ class _SurveyListScreenState extends State<SurveyListScreen> {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
+
                 if (snapshot.hasError) {
                   return Center(
-                    child: Text('Error: ${snapshot.error}'),
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.error_outline,
+                              color: Colors.red, size: 50),
+                          const SizedBox(height: 10),
+                          Text(
+                            'Error loading surveys',
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: Colors.grey[700],
+                            ),
+                          ),
+                          Text(
+                            '${snapshot.error}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[500],
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 20),
+                          ElevatedButton(
+                            onPressed: _refresh,
+                            child: const Text('Retry'),
+                          ),
+                        ],
+                      ),
+                    ),
                   );
                 }
+
+                if (snapshot.hasData) {
+                  _allSurveys = snapshot.data!;
+                }
+
                 if (_allSurveys.isEmpty) {
-                  return const Center(
+                  return Center(
                     child: Padding(
-                      padding: EdgeInsets.symmetric(vertical: 120),
-                      child: Text('No surveys found'),
+                      padding: const EdgeInsets.symmetric(vertical: 120),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.list_alt,
+                              color: Colors.grey[400], size: 60),
+                          const SizedBox(height: 16),
+                          const Text(
+                            'No surveys found',
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: Color(0xFF718096),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          const Text(
+                            'Click the + button to add a new survey',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Color(0xFFA0AEC0),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   );
                 }
@@ -474,11 +469,33 @@ class _SurveyListScreenState extends State<SurveyListScreen> {
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(12),
                     child: paginatedSurveys.isEmpty && _searchQuery.isNotEmpty
-                        ? const Center(
+                        ? Center(
                             child: Padding(
-                              padding: EdgeInsets.symmetric(vertical: 120),
-                              child:
-                                  Text('No surveys found matching your search'),
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 120),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.search_off,
+                                      color: Colors.grey[400], size: 60),
+                                  const SizedBox(height: 16),
+                                  const Text(
+                                    'No matching surveys found',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      color: Color(0xFF718096),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  const Text(
+                                    'Try a different search term',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: Color(0xFFA0AEC0),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           )
                         : Scrollbar(
@@ -705,12 +722,13 @@ class _SurveyListScreenState extends State<SurveyListScreen> {
                                                 child: Text(
                                                   survey.municipalityName ??
                                                       '-',
-                                                  style: textTheme.bodySmall
-                                                      ?.copyWith(
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    color:
+                                                        const Color(0xFF4A5568),
                                                     fontFamily:
                                                         GoogleFonts.poppins()
                                                             .fontFamily,
-                                                    fontSize: 11,
                                                   ),
                                                   maxLines: 1,
                                                   overflow:
@@ -723,12 +741,13 @@ class _SurveyListScreenState extends State<SurveyListScreen> {
                                                 child: Text(
                                                   survey.propertyDetailsPropertyId ??
                                                       '-',
-                                                  style: textTheme.bodySmall
-                                                      ?.copyWith(
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    color:
+                                                        const Color(0xFF4A5568),
                                                     fontFamily:
                                                         GoogleFonts.poppins()
                                                             .fontFamily,
-                                                    fontSize: 11,
                                                   ),
                                                   maxLines: 1,
                                                   overflow:
@@ -739,13 +758,14 @@ class _SurveyListScreenState extends State<SurveyListScreen> {
                                               SizedBox(
                                                 width: 120,
                                                 child: Text(
-                                                  survey.name.toString() ?? '-',
-                                                  style: textTheme.bodySmall
-                                                      ?.copyWith(
+                                                  survey.name ?? '-',
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    color:
+                                                        const Color(0xFF4A5568),
                                                     fontFamily:
                                                         GoogleFonts.poppins()
                                                             .fontFamily,
-                                                    fontSize: 11,
                                                   ),
                                                   maxLines: 1,
                                                   overflow:
@@ -758,12 +778,13 @@ class _SurveyListScreenState extends State<SurveyListScreen> {
                                                 child: Text(
                                                   survey.integratedPidPropertyId ??
                                                       '-',
-                                                  style: textTheme.bodySmall
-                                                      ?.copyWith(
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    color:
+                                                        const Color(0xFF4A5568),
                                                     fontFamily:
                                                         GoogleFonts.poppins()
                                                             .fontFamily,
-                                                    fontSize: 11,
                                                   ),
                                                   maxLines: 1,
                                                   overflow:
@@ -775,12 +796,13 @@ class _SurveyListScreenState extends State<SurveyListScreen> {
                                                 child: Text(
                                                   survey.integratedPidOwnerOccupierName ??
                                                       '-',
-                                                  style: textTheme.bodySmall
-                                                      ?.copyWith(
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    color:
+                                                        const Color(0xFF4A5568),
                                                     fontFamily:
                                                         GoogleFonts.poppins()
                                                             .fontFamily,
-                                                    fontSize: 11,
                                                   ),
                                                   maxLines: 1,
                                                   overflow:
@@ -792,12 +814,13 @@ class _SurveyListScreenState extends State<SurveyListScreen> {
                                                 width: 120,
                                                 child: Text(
                                                   survey.areaOfAuthority ?? '-',
-                                                  style: textTheme.bodySmall
-                                                      ?.copyWith(
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    color:
+                                                        const Color(0xFF4A5568),
                                                     fontFamily:
                                                         GoogleFonts.poppins()
                                                             .fontFamily,
-                                                    fontSize: 11,
                                                   ),
                                                   maxLines: 1,
                                                   overflow:
@@ -809,12 +832,13 @@ class _SurveyListScreenState extends State<SurveyListScreen> {
                                                 width: 120,
                                                 child: Text(
                                                   survey.colonyName ?? '-',
-                                                  style: textTheme.bodySmall
-                                                      ?.copyWith(
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    color:
+                                                        const Color(0xFF4A5568),
                                                     fontFamily:
                                                         GoogleFonts.poppins()
                                                             .fontFamily,
-                                                    fontSize: 11,
                                                   ),
                                                   maxLines: 1,
                                                   overflow:
@@ -832,12 +856,13 @@ class _SurveyListScreenState extends State<SurveyListScreen> {
                                                       ? '${survey.addressOfProperty?.substring(0, 20)}...'
                                                       : survey.addressOfProperty ??
                                                           '-',
-                                                  style: textTheme.bodySmall
-                                                      ?.copyWith(
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    color:
+                                                        const Color(0xFF4A5568),
                                                     fontFamily:
                                                         GoogleFonts.poppins()
                                                             .fontFamily,
-                                                    fontSize: 11,
                                                   ),
                                                   maxLines: 1,
                                                   overflow:
@@ -849,12 +874,13 @@ class _SurveyListScreenState extends State<SurveyListScreen> {
                                                 width: 100,
                                                 child: Text(
                                                   survey.mobileNo ?? '-',
-                                                  style: textTheme.bodySmall
-                                                      ?.copyWith(
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    color:
+                                                        const Color(0xFF4A5568),
                                                     fontFamily:
                                                         GoogleFonts.poppins()
                                                             .fontFamily,
-                                                    fontSize: 11,
                                                   ),
                                                   maxLines: 1,
                                                   overflow:
@@ -866,14 +892,13 @@ class _SurveyListScreenState extends State<SurveyListScreen> {
                                                 width: 100,
                                                 child: Text(
                                                   survey.category ?? '-',
-                                                  style: textTheme.bodySmall
-                                                      ?.copyWith(
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    color:
+                                                        const Color(0xFF4A5568),
                                                     fontFamily:
                                                         GoogleFonts.poppins()
                                                             .fontFamily,
-                                                    fontSize: 11,
-                                                    color:
-                                                        const Color(0xFF2D3748),
                                                   ),
                                                   maxLines: 1,
                                                   overflow:
@@ -885,14 +910,13 @@ class _SurveyListScreenState extends State<SurveyListScreen> {
                                                 width: 100,
                                                 child: Text(
                                                   survey.totalArea ?? '-',
-                                                  style: textTheme.bodySmall
-                                                      ?.copyWith(
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    color:
+                                                        const Color(0xFF4A5568),
                                                     fontFamily:
                                                         GoogleFonts.poppins()
                                                             .fontFamily,
-                                                    fontSize: 11,
-                                                    color:
-                                                        const Color(0xFF2D3748),
                                                   ),
                                                   maxLines: 1,
                                                   overflow:
@@ -904,14 +928,13 @@ class _SurveyListScreenState extends State<SurveyListScreen> {
                                                 width: 100,
                                                 child: Text(
                                                   survey.unit ?? '-',
-                                                  style: textTheme.bodySmall
-                                                      ?.copyWith(
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    color:
+                                                        const Color(0xFF4A5568),
                                                     fontFamily:
                                                         GoogleFonts.poppins()
                                                             .fontFamily,
-                                                    fontSize: 11,
-                                                    color:
-                                                        const Color(0xFF2D3748),
                                                   ),
                                                   maxLines: 1,
                                                   overflow:
