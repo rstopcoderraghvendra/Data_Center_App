@@ -1,15 +1,25 @@
+import 'package:data_care_app/core/network/api_client.dart';
+import 'package:data_care_app/core/storage/local_storage.dart';
+import 'package:data_care_app/data/repositories/customer_repository.dart';
 import 'package:data_care_app/features/bill_distribution/screens/model/bill_model.dart';
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'dart:io';
+import 'dart:convert';
+import 'package:image_picker/image_picker.dart';
 
 class BillFormScreen extends StatefulWidget {
   final Bill? bill;
   final bool isEditMode;
+  final int? projectId;
+  final VoidCallback? onSaveSuccess;
 
   const BillFormScreen({
     super.key,
     this.bill,
     this.isEditMode = false,
+    this.projectId,
+    this.onSaveSuccess,
   });
 
   @override
@@ -18,20 +28,30 @@ class BillFormScreen extends StatefulWidget {
 
 class _BillFormScreenState extends State<BillFormScreen>
     with SingleTickerProviderStateMixin {
-  late final TabController _tabController;
-
-  final ScrollController _imageScrollController = ScrollController();
-
+  final _formKey = GlobalKey<FormState>();
+  late TabController _tabController;
   int _currentStep = 0;
-  bool _saving = false;
+  late final CustomerRepository _repository;
 
-  final _nameController = TextEditingController();
+  // Image picker
+  final ImagePicker _imagePicker = ImagePicker();
+
+  // Store image files for new uploads
+  File? _frontViewFile;
+  File? _sideViewFile;
+  File? _additionalFile;
+  File? _locationFile;
+
+  // Controllers for Step 1
+  final _municipalityNameController = TextEditingController();
   final _propertyIdController = TextEditingController();
-  final _municipalityController = TextEditingController();
-  final _integratedPidController = TextEditingController();
-  final _integratedOwnerController = TextEditingController();
+  final _ownerNameController = TextEditingController();
+
+  // Controllers for Step 2
+  final _step2PropertyIdController = TextEditingController();
+  final _step2OwnerNameController = TextEditingController();
   final _areaOfAuthorityController = TextEditingController();
-  final _colonyController = TextEditingController();
+  final _colonyNameController = TextEditingController();
   final _addressController = TextEditingController();
   final _mobileController = TextEditingController();
 
@@ -43,7 +63,6 @@ class _BillFormScreenState extends State<BillFormScreen>
   @override
   void initState() {
     super.initState();
-
     _tabController = TabController(length: 3, vsync: this);
     _tabController.addListener(() {
       if (mounted && _currentStep != _tabController.index) {
@@ -59,11 +78,13 @@ class _BillFormScreenState extends State<BillFormScreen>
 
     _nameController.dispose();
     _propertyIdController.dispose();
-    _municipalityController.dispose();
-    _integratedPidController.dispose();
-    _integratedOwnerController.dispose();
+    _ownerNameController.dispose();
+
+    // Step 2 controllers
+    _step2PropertyIdController.dispose();
+    _step2OwnerNameController.dispose();
     _areaOfAuthorityController.dispose();
-    _colonyController.dispose();
+    _colonyNameController.dispose();
     _addressController.dispose();
     _mobileController.dispose();
 
@@ -101,10 +122,10 @@ class _BillFormScreenState extends State<BillFormScreen>
       return;
     }
 
-    if (_currentStep < 2) {
-      _nextStep();
-      return;
-    }
+    setState(() {
+      _saving = true;
+      _errorMessage = '';
+    });
 
     setState(() => _saving = true);
 
