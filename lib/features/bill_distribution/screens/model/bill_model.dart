@@ -29,6 +29,9 @@ class Bill {
   String? sideViewUrl;
   String? additionalUrl;
   String? locationUrl;
+  String? verifyBy;
+  String? latitude;
+  String? longitude; // New field for longitude
 
   Bill({
     this.id,
@@ -61,6 +64,9 @@ class Bill {
     this.sideViewUrl,
     this.additionalUrl,
     this.locationUrl,
+    this.verifyBy,
+    this.latitude,
+    this.longitude, // Initialize the new field
   });
 
   factory Bill.fromJson(Map<String, dynamic> json) {
@@ -96,6 +102,9 @@ class Bill {
       sideViewUrl: json['side_view_url'],
       additionalUrl: json['additional_url'],
       locationUrl: json['location_url'],
+      verifyBy: json['verify_by'],
+      latitude: json['latitude'],
+      longitude: json['longitude'], // Parse the new field from JSON
     );
   }
 
@@ -131,6 +140,9 @@ class Bill {
       'side_view_url': sideViewUrl,
       'additional_url': additionalUrl,
       'location_url': locationUrl,
+      'verify_by': verifyBy,
+      'latitude': latitude,
+      'longitude': longitude, // Include the new field in JSON serialization
     };
   }
 

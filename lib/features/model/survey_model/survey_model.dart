@@ -56,6 +56,9 @@ class Survey {
   final String? sideViewUrl;
   final String? additionalUrl;
   final String? locationUrl;
+  final String? verify_by;
+  final String? latitude;
+  final String? longitude;
 
   Survey({
     required this.id,
@@ -88,6 +91,9 @@ class Survey {
     this.sideViewUrl,
     this.additionalUrl,
     this.locationUrl,
+    this.verify_by,
+    this.latitude,
+    this.longitude,
   });
 
   factory Survey.fromJson(Map<String, dynamic> json) {
@@ -137,42 +143,44 @@ class Survey {
     }
 
     return Survey(
-      id: safeParseInt(json['id']),
-      projectId: safeParseInt(json['project_id']),
-      name: safeParseString(json['name']),
-      municipalityName: safeParseString(json['municipality_name']),
-      propertyDetailsPropertyId:
-          safeParseString(json['property_details_property_id']),
-      integratedPidPropertyId:
-          safeParseString(json['integrated_pid_property_id']),
-      integratedPidOwnerOccupierName:
-          safeParseString(json['integrated_pid_owner_occupier_name']),
-      areaOfAuthority: safeParseString(json['area_of_authority']),
-      colonyName: safeParseString(json['colony_name']),
-      addressOfProperty: safeParseString(json['address_of_property']),
-      mobileNo: safeParseString(json['mobile_no']),
-      category: safeParseString(json['category']),
-      totalArea: safeParseString(json['total_area']),
-      unit: safeParseString(json['unit']),
-      authorizationStatus: safeParseString(json['authorization_status']),
-      propertyImageUrl: safeParseString(json['property_image_url']),
-      sourceType: safeParseString(json['source_type']) ?? 'survey',
-      createdBy: safeParseInt(json['created_by']),
-      isActive: safeParseBool(json['is_active']),
-      createdAt: safeParseDateTime(json['created_at']),
-      updatedAt: safeParseDateTime(json['updated_at']),
-      deletedAt: json['deleted_at'] != null
-          ? safeParseDateTime(json['deleted_at'])
-          : null,
-      frontView: safeParseString(json['front_view']),
-      sideView: safeParseString(json['side_view']),
-      additional: safeParseString(json['additional']),
-      location: safeParseString(json['location']),
-      frontViewUrl: safeParseString(json['front_view_url']),
-      sideViewUrl: safeParseString(json['side_view_url']),
-      additionalUrl: safeParseString(json['additional_url']),
-      locationUrl: safeParseString(json['location_url']),
-    );
+        id: safeParseInt(json['id']),
+        projectId: safeParseInt(json['project_id']),
+        name: safeParseString(json['name']),
+        municipalityName: safeParseString(json['municipality_name']),
+        propertyDetailsPropertyId:
+            safeParseString(json['property_details_property_id']),
+        integratedPidPropertyId:
+            safeParseString(json['integrated_pid_property_id']),
+        integratedPidOwnerOccupierName:
+            safeParseString(json['integrated_pid_owner_occupier_name']),
+        areaOfAuthority: safeParseString(json['area_of_authority']),
+        colonyName: safeParseString(json['colony_name']),
+        addressOfProperty: safeParseString(json['address_of_property']),
+        mobileNo: safeParseString(json['mobile_no']),
+        category: safeParseString(json['category']),
+        totalArea: safeParseString(json['total_area']),
+        unit: safeParseString(json['unit']),
+        authorizationStatus: safeParseString(json['authorization_status']),
+        propertyImageUrl: safeParseString(json['property_image_url']),
+        sourceType: safeParseString(json['source_type']) ?? 'survey',
+        createdBy: safeParseInt(json['created_by']),
+        isActive: safeParseBool(json['is_active']),
+        createdAt: safeParseDateTime(json['created_at']),
+        updatedAt: safeParseDateTime(json['updated_at']),
+        deletedAt: json['deleted_at'] != null
+            ? safeParseDateTime(json['deleted_at'])
+            : null,
+        frontView: safeParseString(json['front_view']),
+        sideView: safeParseString(json['side_view']),
+        additional: safeParseString(json['additional']),
+        location: safeParseString(json['location']),
+        frontViewUrl: safeParseString(json['front_view_url']),
+        sideViewUrl: safeParseString(json['side_view_url']),
+        additionalUrl: safeParseString(json['additional_url']),
+        locationUrl: safeParseString(json['location_url']),
+        verify_by: safeParseString(json['verify_by']),
+        latitude: safeParseString(json['latitude']),
+        longitude: safeParseString(json['longitude']));
   }
 
   Map<String, dynamic> toJson() {
@@ -207,6 +215,9 @@ class Survey {
       'side_view_url': sideViewUrl,
       'additional_url': additionalUrl,
       'location_url': locationUrl,
+      'verify_by': verify_by,
+      'latitude': latitude,
+      'longitude': longitude,
     };
   }
 
@@ -241,6 +252,9 @@ class Survey {
     String? sideViewUrl,
     String? additionalUrl,
     String? locationUrl,
+    String? verify_by,
+    String? latitude,
+    String? longitude,
   }) {
     return Survey(
       id: id ?? this.id,
@@ -276,6 +290,9 @@ class Survey {
       sideViewUrl: sideViewUrl ?? this.sideViewUrl,
       additionalUrl: additionalUrl ?? this.additionalUrl,
       locationUrl: locationUrl ?? this.locationUrl,
+      verify_by: verify_by ?? this.verify_by,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
     );
   }
 

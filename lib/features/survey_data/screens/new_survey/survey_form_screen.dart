@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
+import 'package:geolocator/geolocator.dart';
 
 class SurveyFormScreen extends StatefulWidget {
   final Survey? survey;
@@ -64,12 +65,18 @@ class _SurveyFormScreenState extends State<SurveyFormScreen>
   final _additionalImageController = TextEditingController();
   final _locationImageController = TextEditingController();
 
+  // ✅ Latitude & Longitude - NO TEXT FIELDS, only variables
+  double? _currentLatitude;
+  double? _currentLongitude;
+  bool _isLocationCaptured = false;
+
   bool _saving = false;
   bool _isSubmitting = false;
   String _errorMessage = '';
   int? _createdSurveyId;
+  Survey? _nextSurvey;
 
-  // Premium Color Theme (Same as Bill Form)
+  // Premium Color Theme
   static const Color primaryColor = Color(0xFFFF6B35);
   static const Color propertyInfoColor = Color(0xFF6366F1);
   static const Color locationColor = Color(0xFF14B8A6);
@@ -98,6 +105,12 @@ class _SurveyFormScreenState extends State<SurveyFormScreen>
     if (widget.isEditMode && widget.survey != null) {
       _createdSurveyId = widget.survey!.id;
       _loadSurveyData();
+
+      // ✅ FIXED: Convert String to Double safely
+      _currentLatitude = double.tryParse(widget.survey!.latitude ?? '');
+      _currentLongitude = double.tryParse(widget.survey!.longitude ?? '');
+      _isLocationCaptured =
+          _currentLatitude != null && _currentLongitude != null;
     }
   }
 
@@ -125,11 +138,17 @@ class _SurveyFormScreenState extends State<SurveyFormScreen>
     _authorizationStatusController.text =
         widget.survey!.authorizationStatus?.toString() ?? '';
 
-    // Step 3 data (images) - Use display getters from model
+    // Step 3 data (images) - Only load front view image
     _frontViewImageController.text = widget.survey!.displayFrontView ?? '';
-    _sideViewImageController.text = widget.survey!.displaySideView ?? '';
-    _additionalImageController.text = widget.survey!.displayAdditional ?? '';
-    _locationImageController.text = widget.survey!.displayLocation ?? '';
+    // Don't load other images
+    _sideViewImageController.clear();
+    _additionalImageController.clear();
+    _locationImageController.clear();
+
+    // ✅ FIXED: Convert String? to double? safely
+    _currentLatitude = double.tryParse(widget.survey!.latitude ?? '');
+    _currentLongitude = double.tryParse(widget.survey!.longitude ?? '');
+    _isLocationCaptured = _currentLatitude != null && _currentLongitude != null;
   }
 
   @override
@@ -174,10 +193,7 @@ class _SurveyFormScreenState extends State<SurveyFormScreen>
     }
   }
 
-  // ✅ CHANGED: Sab fields optional hai, koi validation nahi
   bool _validateCurrentStep() {
-    // Sab steps ke liye hamesha true return karega
-    // Kyunki koi bhi field required nahi hai
     return true;
   }
 
@@ -187,16 +203,16 @@ class _SurveyFormScreenState extends State<SurveyFormScreen>
     };
 
     switch (_currentStep) {
-      case 0: // Basic Info
+      case 0:
         data.addAll({
           'municipality_name': _municipalityNameController.text.trim(),
           'property_details_property_id': _propertyIdController.text.trim(),
           'name': _ownerNameController.text.trim(),
         });
         break;
-      case 1: // Location & Details
+      case 1:
         data.addAll({
-          'property_id': _step2PropertyIdController.text.trim(),
+          'integrated_pid_property_id': _step2PropertyIdController.text.trim(),
           'integrated_pid_owner_occupier_name':
               _step2OwnerNameController.text.trim(),
           'area_of_authority': _areaOfAuthorityController.text.trim(),
@@ -209,246 +225,68 @@ class _SurveyFormScreenState extends State<SurveyFormScreen>
           'authorization_status': _authorizationStatusController.text.trim(),
         });
         break;
-      case 2: // Images
-        // For images step, we'll handle files separately
+      case 2:
+        // ✅ Auto-capture location if not already captured
+        if (!_isLocationCaptured) {
+          _captureLocationForUpdate();
+        }
+
+        data.addAll({
+          'latitude': _currentLatitude,
+          'longitude': _currentLongitude,
+        });
         break;
     }
 
     return data;
   }
 
-  // Future<void> _submitForm() async {
-  //   // ✅ CRITICAL FIX: Prevent double submission
-  //   if (_isSubmitting) {
-  //     print('⏸️ Form already submitting, ignoring duplicate click');
-  //     return;
-  //   }
+  // ✅ Auto-capture location in background
+  Future<void> _captureLocationForUpdate() async {
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        print('⚠️ Location services are disabled');
+        return;
+      }
 
-  //   // ✅ CHANGED: No validation check, directly proceed
-  //   setState(() {
-  //     _isSubmitting = true;
-  //     _saving = true;
-  //     _errorMessage = '';
-  //   });
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          print('⚠️ Location permission denied');
+          return;
+        }
+      }
 
-  //   try {
-  //     // Get form data
-  //     final stepData = _getCurrentStepData();
-  //     // stepData['verifiy_vy'] = 'vy'; // Ensure source_type is always set
+      if (permission == LocationPermission.deniedForever) {
+        print('⚠️ Location permissions permanently denied');
+        return;
+      }
 
-  //     // Debug print
-  //     print('\n=== SURVEY FORM SUBMIT ===');
-  //     print('Current Step: $_currentStep');
-  //     print('Is Edit Mode: ${widget.isEditMode}');
-  //     print('Created Survey ID: $_createdSurveyId');
-  //     print('Project ID: ${widget.projectId}');
-  //     print('Step Data: $stepData');
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 5),
+      );
 
-  //     // Prepare image files for upload
-  //     Map<String, File>? imageFiles;
+      setState(() {
+        _currentLatitude = position.latitude;
+        _currentLongitude = position.longitude;
+        _isLocationCaptured = true;
+      });
 
-  //     if (_currentStep == 2) {
-  //       imageFiles = {};
+      print('📍 Location auto-captured: $_currentLatitude, $_currentLongitude');
+    } catch (e) {
+      print('❌ Error auto-capturing location: $e');
+    }
+  }
 
-  //       // Check for new image files
-  //       if (_frontViewFile != null) {
-  //         imageFiles['front_view'] = _frontViewFile!;
-  //         print('📸 Front view image selected');
-  //       }
-  //       if (_sideViewFile != null) {
-  //         imageFiles['side_view'] = _sideViewFile!;
-  //         print('📸 Side view image selected');
-  //       }
-  //       if (_additionalFile != null) {
-  //         imageFiles['additional'] = _additionalFile!;
-  //         print('📸 Additional image selected');
-  //       }
-  //       if (_locationFile != null) {
-  //         imageFiles['location'] = _locationFile!;
-  //         print('📸 Location image selected');
-  //       }
-
-  //       // If no new files, make sure imageFiles is null
-  //       if (imageFiles.isEmpty) {
-  //         imageFiles = null;
-  //         print('📸 No new images to upload');
-  //       }
-  //     }
-
-  //     Map<String, dynamic> apiResponse;
-  //     Survey updatedSurvey;
-
-  //     // ✅ SIMPLIFIED LOGIC: Always UPDATE if survey exists
-  //     if (widget.isEditMode || _createdSurveyId != null) {
-  //       // ✅ UPDATE MODE - Use existing survey ID
-  //       final surveyIdToUpdate =
-  //           widget.isEditMode ? widget.survey!.id! : _createdSurveyId!;
-
-  //       print('🔄 UPDATE MODE: Survey ID $surveyIdToUpdate');
-
-  //       apiResponse = await _repository.updateCustomer(
-  //         surveyIdToUpdate,
-  //         stepData,
-  //         imageFiles: imageFiles,
-  //       );
-
-  //       print('✅ Update successful for ID $surveyIdToUpdate');
-  //     } else {
-  //       // ✅ CREATE MODE - Only for first time save (Step 0)
-  //       print('🆕 CREATE MODE: Creating new survey');
-
-  //       if (widget.projectId == null) {
-  //         throw Exception('Project ID is required to create a new survey');
-  //       }
-
-  //       apiResponse = await _repository.createCustomer(
-  //         projectId: widget.projectId!,
-  //         data: stepData,
-  //         imageFiles: imageFiles,
-  //       );
-
-  //       print('✅ Create successful');
-  //     }
-
-  //     // Parse response to get survey
-  //     updatedSurvey = _parseSurveyFromResponse(apiResponse);
-
-  //     // ✅ CRITICAL FIX: Store survey ID after first create
-  //     if (_createdSurveyId == null && updatedSurvey.id != null) {
-  //       _createdSurveyId = updatedSurvey.id;
-  //       print('📌 Stored new Survey ID: $_createdSurveyId');
-  //     }
-
-  //     // ✅ Show success dialog
-  //     await _showSuccessDialog();
-
-  //     setState(() {
-  //       _isSubmitting = false;
-  //       _saving = false;
-  //     });
-
-  //     // ✅ If last step completed, return to list
-  //     if (_currentStep == 2) {
-  //       // Call callback to refresh list
-  //       widget.onSaveSuccess?.call();
-
-  //       if (mounted) {
-  //         Navigator.of(context).pop(updatedSurvey);
-  //       }
-  //     }
-  //   } catch (e) {
-  //     setState(() {
-  //       _isSubmitting = false;
-  //       _saving = false;
-  //       _errorMessage = e.toString();
-  //     });
-
-  //     print('❌ Error: $e');
-  //     print('Stack trace: ${e.toString()}');
-
-  //     if (mounted) {
-  //       ScaffoldMessenger.of(context).showSnackBar(
-  //         SnackBar(
-  //           content: Text(
-  //             'Error: ${e.toString()}',
-  //             style: GoogleFonts.inter(
-  //               fontWeight: FontWeight.w600,
-  //             ),
-  //           ),
-  //           backgroundColor: Colors.red,
-  //           behavior: SnackBarBehavior.floating,
-  //           shape: RoundedRectangleBorder(
-  //             borderRadius: BorderRadius.circular(12),
-  //           ),
-  //           margin: const EdgeInsets.all(12),
-  //         ),
-  //       );
-  //     }
-  //   }
-  // }
   Future<void> _submitForm() async {
-    // ✅ CRITICAL FIX: Prevent double submission
     if (_isSubmitting) {
       print('⏸️ Form already submitting, ignoring duplicate click');
       return;
     }
 
-    // ✅ NEW: Check if we're on Step 3 (Images) and show verification popup
-    if (_currentStep == 2) {
-      // Check if any new image is selected OR existing images present
-      final bool hasNewImages = _frontViewFile != null ||
-          _sideViewFile != null ||
-          _additionalFile != null ||
-          _locationFile != null;
-
-      final bool hasExistingImages = widget.isEditMode &&
-          (_frontViewImageController.text.isNotEmpty ||
-              _sideViewImageController.text.isNotEmpty ||
-              _additionalImageController.text.isNotEmpty ||
-              _locationImageController.text.isNotEmpty);
-
-      // If there are images (new or existing), show verification popup
-      if (hasNewImages || hasExistingImages) {
-        final verificationResult = await _showImageVerificationPopup();
-        if (verificationResult == null) {
-          print('❌ Image verification cancelled by user');
-          return;
-        }
-
-        // Get verification data from popup
-        final verifyByText = verificationResult['verify_by']?.trim() ?? '';
-        final agreedToTerms = verificationResult['agreed_to_terms'] ?? false;
-
-        // Validate inputs
-        if (verifyByText.isEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'Please enter verification text',
-                style: GoogleFonts.inter(fontWeight: FontWeight.w600),
-              ),
-              backgroundColor: Colors.orange,
-              behavior: SnackBarBehavior.floating,
-              duration: const Duration(seconds: 2),
-            ),
-          );
-          return;
-        }
-
-        if (!agreedToTerms) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'Please agree to the terms to proceed',
-                style: GoogleFonts.inter(fontWeight: FontWeight.w600),
-              ),
-              backgroundColor: Colors.orange,
-              behavior: SnackBarBehavior.floating,
-              duration: const Duration(seconds: 2),
-            ),
-          );
-          return;
-        }
-
-        // Now proceed with form submission with verify_by text
-        await _proceedWithFormSubmission(verifyByText);
-        return;
-      } else {
-        // No images at all - just proceed normally
-        final shouldProceed = await _showNoImagesVerificationDialog();
-        if (!shouldProceed) {
-          print('❌ Image save cancelled by user');
-          return;
-        }
-      }
-    }
-
-    // ✅ For non-image steps or when no images, proceed normally
-    await _proceedWithFormSubmission('');
-  }
-
-// ✅ NEW: Main form submission method with verify_by parameter
-  Future<void> _proceedWithFormSubmission(String verifyByText) async {
     setState(() {
       _isSubmitting = true;
       _saving = true;
@@ -456,58 +294,41 @@ class _SurveyFormScreenState extends State<SurveyFormScreen>
     });
 
     try {
-      // Get form data
+      // ✅ Auto-capture location for Step 3
+      if (_currentStep == 2 && !_isLocationCaptured) {
+        await _captureLocationForUpdate();
+      }
+
       final stepData = _getCurrentStepData();
+      stepData['verify_by'] = "yes";
 
-      // ✅ Add verify_by field to the data
-      stepData['verify_by'] = verifyByText;
-
-      // Debug print
       print('\n=== SURVEY FORM SUBMIT ===');
       print('Current Step: $_currentStep');
       print('Is Edit Mode: ${widget.isEditMode}');
       print('Created Survey ID: $_createdSurveyId');
       print('Project ID: ${widget.projectId}');
-      print('Verify By Text: $verifyByText');
+      print('📍 Latitude: ${_currentLatitude ?? "Not captured"}');
+      print('📍 Longitude: ${_currentLongitude ?? "Not captured"}');
       print('Step Data: $stepData');
 
-      // Prepare image files for upload
       Map<String, File>? imageFiles;
 
       if (_currentStep == 2) {
         imageFiles = {};
 
-        // Check for new image files
         if (_frontViewFile != null) {
           imageFiles['front_view'] = _frontViewFile!;
-          print('📸 Front view image selected');
         }
-        if (_sideViewFile != null) {
-          imageFiles['side_view'] = _sideViewFile!;
-          print('📸 Side view image selected');
-        }
-        if (_additionalFile != null) {
-          imageFiles['additional'] = _additionalFile!;
-          print('📸 Additional image selected');
-        }
-        if (_locationFile != null) {
-          imageFiles['location'] = _locationFile!;
-          print('📸 Location image selected');
-        }
-
-        // If no new files, make sure imageFiles is null
+        // Don't include other images
         if (imageFiles.isEmpty) {
           imageFiles = null;
-          print('📸 No new images to upload');
         }
       }
 
       Map<String, dynamic> apiResponse;
       Survey updatedSurvey;
 
-      // ✅ SIMPLIFIED LOGIC: Always UPDATE if survey exists
       if (widget.isEditMode || _createdSurveyId != null) {
-        // ✅ UPDATE MODE - Use existing survey ID
         final surveyIdToUpdate =
             widget.isEditMode ? widget.survey!.id! : _createdSurveyId!;
 
@@ -521,7 +342,6 @@ class _SurveyFormScreenState extends State<SurveyFormScreen>
 
         print('✅ Update successful for ID $surveyIdToUpdate');
       } else {
-        // ✅ CREATE MODE - Only for first time save (Step 0)
         print('🆕 CREATE MODE: Creating new survey');
 
         if (widget.projectId == null) {
@@ -537,31 +357,36 @@ class _SurveyFormScreenState extends State<SurveyFormScreen>
         print('✅ Create successful');
       }
 
-      // Parse response to get survey
-      updatedSurvey = _parseSurveyFromResponse(apiResponse);
+      if (_currentStep == 2) {
+        final Map<String, dynamic> parsedResponse =
+            _parseUpdateResponse(apiResponse);
+        updatedSurvey = parsedResponse['current'] as Survey;
+        _nextSurvey = parsedResponse['next'] as Survey?;
 
-      // ✅ CRITICAL FIX: Store survey ID after first create
-      if (_createdSurveyId == null && updatedSurvey.id != null) {
-        _createdSurveyId = updatedSurvey.id;
-        print('📌 Stored new Survey ID: $_createdSurveyId');
+        if (_createdSurveyId == null && updatedSurvey.id != null) {
+          _createdSurveyId = updatedSurvey.id;
+          print('📌 Stored new Survey ID: $_createdSurveyId');
+        }
+
+        await _showSuccessDialogForImages(updatedSurvey);
+      } else {
+        updatedSurvey = _parseSurveyFromResponse(apiResponse);
+
+        if (_createdSurveyId == null && updatedSurvey.id != null) {
+          _createdSurveyId = updatedSurvey.id;
+          print('📌 Stored new Survey ID: $_createdSurveyId');
+        }
+
+        await _showSimpleSuccessDialog();
       }
-
-      // ✅ Show success dialog
-      await _showSuccessDialog();
 
       setState(() {
         _isSubmitting = false;
         _saving = false;
       });
 
-      // ✅ If last step completed, return to list
       if (_currentStep == 2) {
-        // Call callback to refresh list
-        widget.onSaveSuccess?.call();
-
-        if (mounted) {
-          Navigator.of(context).pop(updatedSurvey);
-        }
+        _handleCompletion(updatedSurvey);
       }
     } catch (e) {
       setState(() {
@@ -571,16 +396,13 @@ class _SurveyFormScreenState extends State<SurveyFormScreen>
       });
 
       print('❌ Error: $e');
-      print('Stack trace: ${e.toString()}');
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
               'Error: ${e.toString()}',
-              style: GoogleFonts.inter(
-                fontWeight: FontWeight.w600,
-              ),
+              style: GoogleFonts.inter(fontWeight: FontWeight.w600),
             ),
             backgroundColor: Colors.red,
             behavior: SnackBarBehavior.floating,
@@ -594,303 +416,35 @@ class _SurveyFormScreenState extends State<SurveyFormScreen>
     }
   }
 
-// ✅ NEW: Image verification popup dialog
-  Future<Map<String, dynamic>?> _showImageVerificationPopup() async {
-    final TextEditingController verifyByController = TextEditingController();
-    bool agreedToTerms = false;
+  Map<String, dynamic> _parseUpdateResponse(Map<String, dynamic> apiResponse) {
+    try {
+      if (apiResponse.containsKey('current') &&
+          apiResponse.containsKey('next')) {
+        final currentData = apiResponse['current'];
+        final nextData = apiResponse['next'];
 
-    return await showDialog<Map<String, dynamic>>(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return AlertDialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              title: Row(
-                children: [
-                  Icon(Icons.verified_user_rounded,
-                      color: Colors.purple.shade600, size: 24),
-                  const SizedBox(width: 10),
-                  Text(
-                    'Image Verification',
-                    style: GoogleFonts.inter(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 18,
-                      color: textPrimary,
-                    ),
-                  ),
-                ],
-              ),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Verification text
-                    Text(
-                      'Verify By',
-                      style: GoogleFonts.inter(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
+        final Survey currentSurvey = Survey.fromJson(currentData);
+        Survey? nextSurvey;
 
-                    // Input field for verify_by
-                    TextFormField(
-                      controller: verifyByController,
-                      decoration: InputDecoration(
-                        hintText: 'Enter verification text...',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide:
-                              BorderSide(color: borderColor, width: 1.2),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(color: primaryColor, width: 2),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 10,
-                        ),
-                      ),
-                      maxLines: 1,
-                      style: GoogleFonts.inter(
-                        fontSize: 14,
-                        color: textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
+        if (nextData != null) {
+          nextSurvey = Survey.fromJson(nextData);
+        }
 
-                    // Checkbox for terms agreement
-                    Row(
-                      children: [
-                        Checkbox(
-                          value: agreedToTerms,
-                          onChanged: (value) {
-                            setState(() {
-                              agreedToTerms = value ?? false;
-                            });
-                          },
-                          activeColor: primaryColor,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                        ),
-                        Expanded(
-                          child: Text(
-                            'I confirm that the uploaded images are accurate and verified',
-                            style: GoogleFonts.inter(
-                              fontSize: 12,
-                              color: textSecondary,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
+        return {
+          'current': currentSurvey,
+          'next': nextSurvey,
+        };
+      }
 
-                    // Info box
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.purple.shade50,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.purple.shade100),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.info_outline_rounded,
-                              color: Colors.purple.shade600, size: 18),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'This verification text will be saved with your survey images.',
-                              style: GoogleFonts.inter(
-                                fontSize: 12,
-                                color: Colors.purple.shade800,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(null),
-                  child: Text(
-                    'Cancel',
-                    style: GoogleFonts.inter(
-                      fontWeight: FontWeight.w600,
-                      color: textSecondary,
-                    ),
-                  ),
-                ),
-                ElevatedButton(
-                  onPressed: () {
-                    if (verifyByController.text.trim().isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            'Please enter verification text',
-                            style:
-                                GoogleFonts.inter(fontWeight: FontWeight.w600),
-                          ),
-                          backgroundColor: Colors.orange,
-                          behavior: SnackBarBehavior.floating,
-                          duration: const Duration(seconds: 1),
-                        ),
-                      );
-                      return;
-                    }
-
-                    if (!agreedToTerms) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            'Please agree to the terms',
-                            style:
-                                GoogleFonts.inter(fontWeight: FontWeight.w600),
-                          ),
-                          backgroundColor: Colors.orange,
-                          behavior: SnackBarBehavior.floating,
-                          duration: const Duration(seconds: 1),
-                        ),
-                      );
-                      return;
-                    }
-
-                    Navigator.of(context).pop({
-                      'verify_by': verifyByController.text.trim(),
-                      'agreed_to_terms': agreedToTerms,
-                    });
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: photosColor,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  child: Text(
-                    'Submit',
-                    style: GoogleFonts.inter(
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-
-// ✅ NEW: No images verification dialog
-  Future<bool> _showNoImagesVerificationDialog() async {
-    return await showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (BuildContext context) {
-            return AlertDialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              title: Row(
-                children: [
-                  Icon(Icons.warning_amber_rounded,
-                      color: Colors.orange.shade600, size: 24),
-                  const SizedBox(width: 10),
-                  Text(
-                    'No Images Selected',
-                    style: GoogleFonts.inter(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 18,
-                      color: textPrimary,
-                    ),
-                  ),
-                ],
-              ),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'You haven\'t selected any images for this survey.',
-                    style: GoogleFonts.inter(
-                      fontSize: 14,
-                      color: textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.shade50,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.orange.shade100),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.info_outline_rounded,
-                            color: Colors.orange.shade600, size: 18),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'You can add images later by editing this survey.',
-                            style: GoogleFonts.inter(
-                              fontSize: 12,
-                              color: Colors.orange.shade800,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(false),
-                  child: Text(
-                    'Cancel',
-                    style: GoogleFonts.inter(
-                      fontWeight: FontWeight.w600,
-                      color: textSecondary,
-                    ),
-                  ),
-                ),
-                ElevatedButton(
-                  onPressed: () => Navigator.of(context).pop(true),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: photosColor,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  child: Text(
-                    'Save Without Images',
-                    style: GoogleFonts.inter(
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ],
-            );
-          },
-        ) ??
-        false;
+      final Survey survey = _parseSurveyFromResponse(apiResponse);
+      return {
+        'current': survey,
+        'next': null,
+      };
+    } catch (e) {
+      print('Error parsing update response: $e');
+      rethrow;
+    }
   }
 
   Survey _parseSurveyFromResponse(Map<String, dynamic> apiResponse) {
@@ -910,7 +464,15 @@ class _SurveyFormScreenState extends State<SurveyFormScreen>
     }
   }
 
-  Future<void> _showSuccessDialog() async {
+  void _handleCompletion(Survey updatedSurvey) {
+    widget.onSaveSuccess?.call();
+
+    if (mounted) {
+      Navigator.of(context).pop(updatedSurvey);
+    }
+  }
+
+  Future<void> _showSimpleSuccessDialog() async {
     return showDialog(
       context: context,
       barrierDismissible: false,
@@ -934,9 +496,9 @@ class _SurveyFormScreenState extends State<SurveyFormScreen>
             ],
           ),
           content: Text(
-            _currentStep == 2
-                ? 'Images saved successfully! The survey is now complete.'
-                : 'Step ${_currentStep + 1} data saved successfully!',
+            _currentStep == 0
+                ? 'Basic information saved successfully!'
+                : 'Location & details saved successfully!',
             style: GoogleFonts.inter(
               fontSize: 14,
               color: textSecondary,
@@ -946,7 +508,7 @@ class _SurveyFormScreenState extends State<SurveyFormScreen>
             TextButton(
               onPressed: () {
                 Navigator.of(context).pop();
-                if (_currentStep < 2 && !widget.isEditMode) {
+                if (!widget.isEditMode) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(
@@ -974,7 +536,226 @@ class _SurveyFormScreenState extends State<SurveyFormScreen>
     );
   }
 
-  // Image handling methods
+  Future<void> _showSuccessDialogForImages(Survey updatedSurvey) async {
+    return showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              Icon(Icons.check_circle, color: Colors.green.shade600, size: 24),
+              const SizedBox(width: 10),
+              Text(
+                'Success',
+                style: GoogleFonts.inter(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 18,
+                  color: textPrimary,
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Front view image saved successfully!',
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  color: textSecondary,
+                ),
+              ),
+              if (_isLocationCaptured) ...[
+                const SizedBox(height: 4),
+                Text(
+                  '📍 Location captured',
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    color: Colors.green.shade700,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 8),
+              if (_nextSurvey != null)
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.blue.shade100),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.arrow_forward_rounded,
+                          color: Colors.blue.shade600, size: 16),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Next Record Available',
+                              style: GoogleFonts.inter(
+                                fontSize: 12,
+                                color: Colors.blue.shade800,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Click "Load Next" to fill next survey',
+                              style: GoogleFonts.inter(
+                                fontSize: 10,
+                                color: Colors.blue.shade600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+          actions: [
+            if (_nextSurvey != null)
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  _loadNextRecord();
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue.shade600,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: Text(
+                  'Load Next',
+                  style: GoogleFonts.inter(
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            // TextButton(
+            //   onPressed: () {
+            //     Navigator.of(context).pop();
+            //     _handleCompletion(updatedSurvey);
+            //   },
+            //   child: Text(
+            //     _nextSurvey != null ? 'Return to List' : 'OK',
+            //     style: GoogleFonts.inter(
+            //       fontWeight: FontWeight.w600,
+            //       color: _nextSurvey != null ? textSecondary : primaryColor,
+            //     ),
+            //   ),
+            // ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _loadNextRecord() {
+    if (_nextSurvey == null) return;
+
+    print('🔄 Loading next record: ID ${_nextSurvey!.id}');
+
+    _clearAllControllers();
+    _loadNextSurveyData(_nextSurvey!);
+    _tabController.animateTo(0);
+    _clearImageFiles();
+    _nextSurvey = null;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Next record loaded successfully!',
+          style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+        ),
+        backgroundColor: Colors.blue,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _loadNextSurveyData(Survey nextSurvey) {
+    print('📋 Loading next survey data: ID ${nextSurvey.id}');
+
+    // Step 1 data
+    _municipalityNameController.text = nextSurvey.municipalityName ?? '';
+    _propertyIdController.text = nextSurvey.propertyDetailsPropertyId ?? '';
+    _ownerNameController.text = nextSurvey.name ?? '';
+
+    // Step 2 data
+    _step2PropertyIdController.text = nextSurvey.integratedPidPropertyId ?? '';
+    _step2OwnerNameController.text =
+        nextSurvey.integratedPidOwnerOccupierName ?? '';
+    _areaOfAuthorityController.text =
+        nextSurvey.areaOfAuthority?.toString() ?? '';
+    _colonyNameController.text = nextSurvey.colonyName ?? '';
+    _addressController.text = nextSurvey.addressOfProperty ?? '';
+    _mobileController.text = nextSurvey.mobileNo ?? '';
+    _categoryController.text = nextSurvey.category?.toString() ?? '';
+    _totalAreaController.text = nextSurvey.totalArea?.toString() ?? '';
+    _unitController.text = nextSurvey.unit?.toString() ?? '';
+    _authorizationStatusController.text =
+        nextSurvey.authorizationStatus?.toString() ?? '';
+
+    // Step 3 data (images) - Only load front view image
+    _frontViewImageController.text = nextSurvey.displayFrontView ?? '';
+    // Don't load other images
+    _sideViewImageController.clear();
+    _additionalImageController.clear();
+    _locationImageController.clear();
+
+    // ✅ FIXED: Convert String? to double? safely
+    _currentLatitude = double.tryParse(nextSurvey.latitude ?? '');
+    _currentLongitude = double.tryParse(nextSurvey.longitude ?? '');
+    _isLocationCaptured = _currentLatitude != null && _currentLongitude != null;
+
+    _createdSurveyId = nextSurvey.id;
+  }
+
+  void _clearAllControllers() {
+    _municipalityNameController.clear();
+    _propertyIdController.clear();
+    _ownerNameController.clear();
+    _step2PropertyIdController.clear();
+    _step2OwnerNameController.clear();
+    _areaOfAuthorityController.clear();
+    _colonyNameController.clear();
+    _addressController.clear();
+    _mobileController.clear();
+    _categoryController.clear();
+    _totalAreaController.clear();
+    _unitController.clear();
+    _authorizationStatusController.clear();
+    _frontViewImageController.clear();
+    _sideViewImageController.clear();
+    _additionalImageController.clear();
+    _locationImageController.clear();
+  }
+
+  void _clearImageFiles() {
+    setState(() {
+      _frontViewFile = null;
+      _sideViewFile = null;
+      _additionalFile = null;
+      _locationFile = null;
+    });
+  }
+
+  // Image handling methods - Only keep front_view functionality
   Future<void> _pickImageForField(String imageType) async {
     try {
       final pickedFile = await _imagePicker.pickImage(
@@ -990,15 +771,7 @@ class _SurveyFormScreenState extends State<SurveyFormScreen>
             case 'front_view':
               _frontViewFile = file;
               break;
-            case 'side_view':
-              _sideViewFile = file;
-              break;
-            case 'additional':
-              _additionalFile = file;
-              break;
-            case 'location':
-              _locationFile = file;
-              break;
+            // Other cases removed - functionality kept but won't be called
           }
         });
       }
@@ -1027,15 +800,7 @@ class _SurveyFormScreenState extends State<SurveyFormScreen>
             case 'front_view':
               _frontViewFile = file;
               break;
-            case 'side_view':
-              _sideViewFile = file;
-              break;
-            case 'additional':
-              _additionalFile = file;
-              break;
-            case 'location':
-              _locationFile = file;
-              break;
+            // Other cases removed - functionality kept but won't be called
           }
         });
       }
@@ -1050,6 +815,9 @@ class _SurveyFormScreenState extends State<SurveyFormScreen>
   }
 
   void _showImageSourceDialog(String label, String imageType) {
+    // Only show dialog for front_view
+    if (imageType != 'front_view') return;
+
     showDialog(
       context: context,
       builder: (context) {
@@ -1076,6 +844,18 @@ class _SurveyFormScreenState extends State<SurveyFormScreen>
                   _takePhotoForField(imageType);
                 },
               ),
+              // ListTile(
+              //   leading:
+              //       const Icon(Icons.photo_library_rounded, color: photosColor),
+              //   title: Text(
+              //     'Choose from Gallery',
+              //     style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+              //   ),
+              //   onTap: () {
+              //     Navigator.pop(context);
+              //     _pickImageForField(imageType);
+              //   },
+              // ),
             ],
           ),
         );
@@ -1084,6 +864,9 @@ class _SurveyFormScreenState extends State<SurveyFormScreen>
   }
 
   void _showRemoveImageDialog(String label, String imageType) {
+    // Only show dialog for front_view
+    if (imageType != 'front_view') return;
+
     showDialog(
       context: context,
       builder: (context) {
@@ -1130,15 +913,7 @@ class _SurveyFormScreenState extends State<SurveyFormScreen>
                   switch (imageType) {
                     case 'front_view':
                       _frontViewFile = null;
-                      break;
-                    case 'side_view':
-                      _sideViewFile = null;
-                      break;
-                    case 'additional':
-                      _additionalFile = null;
-                      break;
-                    case 'location':
-                      _locationFile = null;
+                      _frontViewImageController.clear();
                       break;
                   }
                 });
@@ -1501,22 +1276,21 @@ class _SurveyFormScreenState extends State<SurveyFormScreen>
           child: Column(
             children: [
               const SizedBox(height: 8),
-              // ✅ CHANGED: Sab fields optional hai, validator nahi
               _buildCompactTextField(
                 controller: _municipalityNameController,
-                label: 'Municipality Name', // * removed
+                label: 'Municipality Name',
                 icon: Icons.location_city_rounded,
               ),
               const SizedBox(height: 8),
               _buildCompactTextField(
                 controller: _propertyIdController,
-                label: 'Property Id', // * removed
+                label: 'Property Id',
                 icon: Icons.tag_rounded,
               ),
               const SizedBox(height: 8),
               _buildCompactTextField(
                 controller: _ownerNameController,
-                label: 'Owner/Occupier Name', // * removed
+                label: 'Owner/Occupier Name',
                 icon: Icons.person_outline_rounded,
               ),
               const SizedBox(height: 8),
@@ -1557,67 +1331,66 @@ class _SurveyFormScreenState extends State<SurveyFormScreen>
           child: Column(
             children: [
               const SizedBox(height: 8),
-              // ✅ CHANGED: Sab fields optional hai, validator nahi
               _buildCompactTextField(
                 controller: _step2PropertyIdController,
-                label: 'Property Id', // * removed
+                label: 'Property Id',
                 icon: Icons.tag_rounded,
               ),
               const SizedBox(height: 8),
               _buildCompactTextField(
                 controller: _step2OwnerNameController,
-                label: 'Owner/Occupier Name', // * removed
+                label: 'Owner/Occupier Name',
                 icon: Icons.person_outline_rounded,
               ),
               const SizedBox(height: 8),
               _buildCompactTextField(
                 controller: _areaOfAuthorityController,
-                label: 'Area Of the Authority', // * removed
+                label: 'Area Of the Authority',
                 icon: Icons.map_rounded,
               ),
               const SizedBox(height: 8),
               _buildCompactTextField(
                 controller: _colonyNameController,
-                label: 'Name Of the Colony', // * removed
+                label: 'Name Of the Colony',
                 icon: Icons.landscape_rounded,
               ),
               const SizedBox(height: 8),
               _buildCompactTextField(
                 controller: _addressController,
-                label: 'Address of Property', // * removed
+                label: 'Address of Property',
                 icon: Icons.home_rounded,
                 maxLines: 2,
               ),
               const SizedBox(height: 8),
               _buildCompactTextField(
                 controller: _mobileController,
-                label: 'Mobile No.', // * removed
+                label: 'Mobile No.',
                 icon: Icons.phone_android_rounded,
                 keyboardType: TextInputType.phone,
               ),
               const SizedBox(height: 8),
               _buildCompactTextField(
                 controller: _categoryController,
-                label: 'Category', // * removed
+                label: 'Category',
                 icon: Icons.category_rounded,
               ),
               const SizedBox(height: 8),
               _buildCompactTextField(
                 controller: _totalAreaController,
-                label: 'Total Area', // * removed
+                label: 'Total Area',
                 icon: Icons.aspect_ratio_rounded,
                 keyboardType: TextInputType.number,
               ),
               const SizedBox(height: 8),
               _buildCompactTextField(
                 controller: _unitController,
-                label: 'Unit', // * removed
+                label: 'Unit',
                 icon: Icons.square_foot_rounded,
               ),
               const SizedBox(height: 8),
               _buildCompactTextField(
                 controller: _authorizationStatusController,
-                label: 'Authorized Area / Unauthorized', // * removed
+                label: 'Authorized Area / Unauthorized',
                 icon: Icons.verified_rounded,
               ),
               const SizedBox(height: 8),
@@ -1628,6 +1401,7 @@ class _SurveyFormScreenState extends State<SurveyFormScreen>
     );
   }
 
+  // ✅ Step 3 - ONLY FRONT VIEW IMAGE, other images hidden
   Widget _buildStep3() {
     return SingleChildScrollView(
       child: Padding(
@@ -1655,7 +1429,7 @@ class _SurveyFormScreenState extends State<SurveyFormScreen>
                     padding: const EdgeInsets.symmetric(horizontal: 10),
                     child: Column(
                       children: [
-                        // Front View Image Field
+                        // Front View Image Field (only one shown)
                         if (widget.isEditMode &&
                             _frontViewImageController.text.isNotEmpty)
                           _buildImagePreview(
@@ -1669,58 +1443,46 @@ class _SurveyFormScreenState extends State<SurveyFormScreen>
                             icon: Icons.home_rounded,
                             imageType: 'front_view',
                           ),
+
                         const SizedBox(height: 8),
 
-                        // Side View Image Field
-                        if (widget.isEditMode &&
-                            _sideViewImageController.text.isNotEmpty)
-                          _buildImagePreview(
-                            imageUrl: _sideViewImageController.text,
-                            label: 'Side View Image',
-                            imageType: 'side_view',
-                          )
-                        else
-                          _buildImageField(
-                            label: 'Side View Image',
-                            icon: Icons.camera_alt_rounded,
-                            imageType: 'side_view',
+                        // ✅ Hidden Location Status - Only shows if captured
+                        if (_isLocationCaptured)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.green.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.green.shade200),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.location_on_rounded,
+                                  size: 16,
+                                  color: Colors.green.shade700,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    '📍 Location will be updated',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 12,
+                                      color: Colors.green.shade700,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        const SizedBox(height: 8),
 
-                        // Additional Images Field
-                        if (widget.isEditMode &&
-                            _additionalImageController.text.isNotEmpty)
-                          _buildImagePreview(
-                            imageUrl: _additionalImageController.text,
-                            label: 'Additional Images',
-                            imageType: 'additional',
-                          )
-                        else
-                          _buildImageField(
-                            label: 'Additional Images',
-                            icon: Icons.add_photo_alternate_rounded,
-                            imageType: 'additional',
-                          ),
                         const SizedBox(height: 8),
-
-                        // Location Image Field
-                        if (widget.isEditMode &&
-                            _locationImageController.text.isNotEmpty)
-                          _buildImagePreview(
-                            imageUrl: _locationImageController.text,
-                            label: 'Location Image',
-                            imageType: 'location',
-                          )
-                        else
-                          _buildImageField(
-                            label: 'Location Image',
-                            icon: Icons.map_rounded,
-                            imageType: 'location',
-                          ),
-                        const SizedBox(height: 8),
-
                         Text(
-                          'Note: Upload images or provide image paths',
+                          'Note: Upload front view image to complete the survey',
                           style: GoogleFonts.inter(
                             fontSize: 11,
                             color: textSecondary,
@@ -1779,7 +1541,6 @@ class _SurveyFormScreenState extends State<SurveyFormScreen>
             ),
             child: Column(
               children: [
-                // Image Preview
                 Container(
                   width: double.infinity,
                   height: 150,
@@ -1831,8 +1592,6 @@ class _SurveyFormScreenState extends State<SurveyFormScreen>
                   ),
                 ),
                 const SizedBox(height: 8),
-
-                // Image Path
                 Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -1864,8 +1623,6 @@ class _SurveyFormScreenState extends State<SurveyFormScreen>
                   ),
                 ),
                 const SizedBox(height: 8),
-
-                // Action Buttons
                 Row(
                   children: [
                     Expanded(
@@ -1930,25 +1687,13 @@ class _SurveyFormScreenState extends State<SurveyFormScreen>
     required IconData icon,
     required String imageType,
   }) {
-    final bool hasImage = imageType == 'front_view' && _frontViewFile != null ||
-        imageType == 'side_view' && _sideViewFile != null ||
-        imageType == 'additional' && _additionalFile != null ||
-        imageType == 'location' && _locationFile != null;
+    final bool hasImage = imageType == 'front_view' && _frontViewFile != null;
 
     String displayText = '';
     if (hasImage) {
       switch (imageType) {
         case 'front_view':
           displayText = _frontViewFile?.path ?? '';
-          break;
-        case 'side_view':
-          displayText = _sideViewFile?.path ?? '';
-          break;
-        case 'additional':
-          displayText = _additionalFile?.path ?? '';
-          break;
-        case 'location':
-          displayText = _locationFile?.path ?? '';
           break;
       }
     }
@@ -2065,7 +1810,6 @@ class _SurveyFormScreenState extends State<SurveyFormScreen>
         top: false,
         child: Row(
           children: [
-            // Save/Submit button for current step
             Expanded(
               child: AbsorbPointer(
                 absorbing: _saving || _isSubmitting,
@@ -2099,7 +1843,6 @@ class _SurveyFormScreenState extends State<SurveyFormScreen>
                     color: Colors.transparent,
                     child: InkWell(
                       onTap: () {
-                        print('🎯 Save button tapped');
                         _submitForm();
                       },
                       borderRadius: BorderRadius.circular(14),
@@ -2142,7 +1885,6 @@ class _SurveyFormScreenState extends State<SurveyFormScreen>
               ),
             ),
             if (_currentStep > 0) const SizedBox(width: 10),
-            // Previous button only for steps 1 and 2
             if (_currentStep > 0)
               AbsorbPointer(
                 absorbing: _saving || _isSubmitting,
@@ -2188,9 +1930,9 @@ class _SurveyFormScreenState extends State<SurveyFormScreen>
     TextInputType? keyboardType,
   }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 0),
       child: SizedBox(
-        height: maxLines > 1 ? null : 46,
+        height: maxLines > 1 ? null : 52,
         child: TextFormField(
           controller: controller,
           maxLines: maxLines,
@@ -2209,37 +1951,37 @@ class _SurveyFormScreenState extends State<SurveyFormScreen>
               letterSpacing: 0.1,
             ),
             prefixIcon: Container(
-              margin: const EdgeInsets.only(right: 10),
-              padding: const EdgeInsets.all(7),
+              margin: const EdgeInsets.only(right: 8),
+              padding: const EdgeInsets.all(8),
               child: Icon(icon, size: 18, color: textPrimary),
             ),
             filled: true,
             fillColor: backgroundColor,
             contentPadding: const EdgeInsets.symmetric(
-              horizontal: 14,
+              horizontal: 12,
               vertical: 12,
             ),
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(10),
               borderSide: BorderSide.none,
             ),
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: borderColor, width: 1.2),
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: borderColor, width: 1),
             ),
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: textPrimary, width: 2),
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: textPrimary, width: 1.5),
             ),
             errorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(10),
               borderSide:
-                  const BorderSide(color: specificationsColor, width: 1.2),
+                  const BorderSide(color: specificationsColor, width: 1),
             ),
             focusedErrorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(10),
               borderSide:
-                  const BorderSide(color: specificationsColor, width: 2),
+                  const BorderSide(color: specificationsColor, width: 1.5),
             ),
             errorStyle: GoogleFonts.inter(
               fontSize: 10,

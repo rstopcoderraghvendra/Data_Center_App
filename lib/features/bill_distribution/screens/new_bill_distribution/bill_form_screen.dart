@@ -5,8 +5,8 @@ import 'package:data_care_app/features/bill_distribution/screens/model/bill_mode
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'dart:io';
-import 'dart:convert';
 import 'package:image_picker/image_picker.dart';
+import 'package:geolocator/geolocator.dart';
 
 class BillFormScreen extends StatefulWidget {
   final Bill? bill;
@@ -36,19 +36,21 @@ class _BillFormScreenState extends State<BillFormScreen>
   // Image picker
   final ImagePicker _imagePicker = ImagePicker();
 
-  // Store image files for new uploads
+  // ✅ SIRF EK IMAGE FILE - FRONT VIEW
   File? _frontViewFile;
-  File? _sideViewFile;
-  File? _additionalFile;
-  File? _locationFile;
 
-  // Controllers for Step 1 (Basic Info)
+  // ✅ Latitude & Longitude - NO TEXT FIELDS, sirf variables
+  double? _currentLatitude;
+  double? _currentLongitude;
+  bool _isLocationCaptured = false;
+
+  // Controllers for Step 1 (Basic Info) - READ ONLY
   final _municipalityNameController = TextEditingController();
   final _propertyIdController = TextEditingController();
   final _ownerNameController = TextEditingController();
   final _mobileController = TextEditingController();
 
-  // Controllers for Step 2 (Property Details) - ✅ REQUIRED VALIDATION HATA DIYA
+  // Controllers for Step 2 (Property Details) - READ ONLY
   final _step2PropertyIdController = TextEditingController();
   final _step2OwnerNameController = TextEditingController();
   final _areaOfAuthorityController = TextEditingController();
@@ -59,15 +61,14 @@ class _BillFormScreenState extends State<BillFormScreen>
   final _unitController = TextEditingController();
   final _authorizationStatusController = TextEditingController();
 
-  // Image controllers for Step 3
+  // ✅ SIRF EK IMAGE controller - FRONT VIEW
   final _frontViewImageController = TextEditingController();
-  final _sideViewImageController = TextEditingController();
-  final _additionalImageController = TextEditingController();
-  final _locationImageController = TextEditingController();
 
   bool _saving = false;
+  bool _isSubmitting = false;
   String _errorMessage = '';
   int? _createdBillId;
+  Bill? _nextBill;
 
   // Premium Color Theme
   static const Color primaryColor = Color(0xFFFF6B35);
@@ -75,7 +76,6 @@ class _BillFormScreenState extends State<BillFormScreen>
   static const Color locationColor = Color(0xFF14B8A6);
   static const Color specificationsColor = Color(0xFFEF4444);
   static const Color photosColor = Color(0xFF10B981);
-  static const Color textFieldIconColor = Color(0xFF8B5CF6);
   static const Color backgroundColor = Color(0xFFF8FAFC);
   static const Color cardColor = Colors.white;
   static const Color textPrimary = Color(0xFF0F172A);
@@ -87,10 +87,6 @@ class _BillFormScreenState extends State<BillFormScreen>
   @override
   void initState() {
     super.initState();
-    print('🔄 Initializing Bill Form Screen...');
-    print('📋 Edit Mode: ${widget.isEditMode}');
-    print('📋 Bill ID: ${widget.bill?.id}');
-
     _repository = CustomerRepository(ApiClient(storage: LocalStorage()));
     _tabController = TabController(length: 3, vsync: this);
     _tabController.addListener(() {
@@ -102,19 +98,25 @@ class _BillFormScreenState extends State<BillFormScreen>
     if (widget.isEditMode && widget.bill != null) {
       _createdBillId = widget.bill!.id;
       _loadBillData();
+
+      // ✅ Load existing location data
+      _currentLatitude = double.tryParse(widget.bill!.latitude ?? '');
+      _currentLongitude = double.tryParse(widget.bill!.longitude ?? '');
+      _isLocationCaptured =
+          _currentLatitude != null && _currentLongitude != null;
     }
   }
 
   void _loadBillData() {
-    print('📥 Loading bill data for ID: ${widget.bill!.id}');
+    if (widget.bill == null) return;
 
-    // Step 1 data
+    // Step 1 - READ ONLY
     _municipalityNameController.text = widget.bill!.municipalityName ?? '';
     _propertyIdController.text = widget.bill!.propertyDetailsPropertyId ?? '';
     _ownerNameController.text = widget.bill!.name ?? '';
     _mobileController.text = widget.bill!.mobileNo ?? '';
 
-    // Step 2 data
+    // Step 2 - READ ONLY
     _step2PropertyIdController.text =
         widget.bill!.integratedPidPropertyId ?? '';
     _step2OwnerNameController.text =
@@ -128,21 +130,13 @@ class _BillFormScreenState extends State<BillFormScreen>
     _authorizationStatusController.text =
         widget.bill!.authorizationStatus ?? '';
 
-    // Step 3 data (images)
-    if (widget.bill!.frontViewUrl != null) {
-      _frontViewImageController.text = widget.bill!.frontViewUrl!;
-    }
-    if (widget.bill!.sideViewUrl != null) {
-      _sideViewImageController.text = widget.bill!.sideViewUrl!;
-    }
-    if (widget.bill!.additionalUrl != null) {
-      _additionalImageController.text = widget.bill!.additionalUrl!;
-    }
-    if (widget.bill!.locationUrl != null) {
-      _locationImageController.text = widget.bill!.locationUrl!;
-    }
+    // ✅ SIRF EK IMAGE
+    _frontViewImageController.text = widget.bill!.frontViewUrl ?? '';
 
-    print('✅ Bill data loaded successfully');
+    // ✅ Load latitude and longitude
+    _currentLatitude = double.tryParse(widget.bill!.latitude ?? '');
+    _currentLongitude = double.tryParse(widget.bill!.longitude ?? '');
+    _isLocationCaptured = _currentLatitude != null && _currentLongitude != null;
   }
 
   @override
@@ -166,11 +160,8 @@ class _BillFormScreenState extends State<BillFormScreen>
     _unitController.dispose();
     _authorizationStatusController.dispose();
 
-    // Step 3 controllers
+    // ✅ SIRF EK IMAGE controller
     _frontViewImageController.dispose();
-    _sideViewImageController.dispose();
-    _additionalImageController.dispose();
-    _locationImageController.dispose();
 
     super.dispose();
   }
@@ -187,23 +178,45 @@ class _BillFormScreenState extends State<BillFormScreen>
     }
   }
 
-  bool _validateCurrentStep() {
-    switch (_currentStep) {
-      case 0:
-        // Step 1 में केवल Mobile का validation
-        if (_mobileController.text.isNotEmpty &&
-            _mobileController.text.length < 10) {
-          return false;
+  bool _validateCurrentStep() => true;
+
+  // ✅ Auto-capture location in background
+  Future<void> _captureLocationForUpdate() async {
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        print('⚠️ GPS is disabled');
+        return;
+      }
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          print('⚠️ Location permission denied');
+          return;
         }
-        return true; // ✅ अन्य fields required नहीं हैं
-      case 1:
-        // Step 2 में कोई required validation नहीं - ✅ CHANGED
-        return true;
-      case 2:
-        // Images optional
-        return true;
-      default:
-        return true;
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        print('⚠️ Location permission permanently denied');
+        return;
+      }
+
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 10),
+      );
+
+      setState(() {
+        _currentLatitude = position.latitude;
+        _currentLongitude = position.longitude;
+        _isLocationCaptured = true;
+      });
+
+      print('📍 Location captured: $_currentLatitude, $_currentLongitude');
+    } catch (e) {
+      print('❌ Error capturing location: $e');
     }
   }
 
@@ -213,191 +226,101 @@ class _BillFormScreenState extends State<BillFormScreen>
     };
 
     switch (_currentStep) {
-      case 0: // Basic Info
-        // ✅ API के हिसाब से exact field names
-        if (_municipalityNameController.text.trim().isNotEmpty) {
-          data['municipality_name'] = _municipalityNameController.text.trim();
-        }
-        if (_propertyIdController.text.trim().isNotEmpty) {
-          data['property_details_property_id'] =
-              _propertyIdController.text.trim();
-        }
-        if (_ownerNameController.text.trim().isNotEmpty) {
-          data['name'] = _ownerNameController.text.trim();
-        }
-        if (_mobileController.text.trim().isNotEmpty) {
-          data['mobile_no'] = _mobileController.text.trim();
-        }
+      case 0: // Basic Info - READ ONLY
         break;
-      case 1: // Property Details
-        // ✅ API के हिसाब से exact field names
-        if (_step2PropertyIdController.text.trim().isNotEmpty) {
-          data['integrated_pid_property_id'] =
-              _step2PropertyIdController.text.trim();
-        }
-        if (_step2OwnerNameController.text.trim().isNotEmpty) {
-          data['integrated_pid_owner_occupier_name'] =
-              _step2OwnerNameController.text.trim();
-        }
-        if (_areaOfAuthorityController.text.trim().isNotEmpty) {
-          data['area_of_authority'] = _areaOfAuthorityController.text.trim();
-        }
-        if (_colonyNameController.text.trim().isNotEmpty) {
-          data['colony_name'] = _colonyNameController.text.trim();
-        }
-        if (_addressController.text.trim().isNotEmpty) {
-          data['address_of_property'] = _addressController.text.trim();
-        }
-        if (_categoryController.text.trim().isNotEmpty) {
-          data['category'] = _categoryController.text.trim();
-        }
-        if (_totalAreaController.text.trim().isNotEmpty) {
-          // Try to parse as number if possible
-          final totalAreaText = _totalAreaController.text.trim();
-          final totalAreaNum = int.tryParse(totalAreaText);
-          data['total_area'] = totalAreaNum ?? totalAreaText;
-        }
-        if (_unitController.text.trim().isNotEmpty) {
-          data['unit'] = _unitController.text.trim();
-        }
-        if (_authorizationStatusController.text.trim().isNotEmpty) {
-          data['authorization_status'] =
-              _authorizationStatusController.text.trim();
-        }
+      case 1: // Property Details - READ ONLY
         break;
-      case 2: // Images
-        // Images will be handled separately
+      case 2: // Images - SIRF YAHI UPDATE HOGA
+        // ✅ EXACTLY JAISA AAPNE BATAYA - DIRECT LAT/LONG BACKGROUND MEIN
+        if (!_isLocationCaptured) {
+          _captureLocationForUpdate();
+        }
+
+        data.addAll({
+          'latitude': _currentLatitude,
+          'longitude': _currentLongitude,
+        });
         break;
     }
 
-    // ✅ Debug: Print the data being sent
-    print('📤 API Request Data for Step ${_currentStep + 1}:');
-    data.forEach((key, value) {
-      print('   $key: $value');
-    });
+    data['verify_by'] = "yes";
+
+    print('📍 Latitude: ${_currentLatitude ?? "Not captured"}');
+    print('📍 Longitude: ${_currentLongitude ?? "Not captured"}');
 
     return data;
   }
 
   Future<void> _submitForm() async {
-    if (!_validateCurrentStep()) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Please check the entered data in Step ${_currentStep + 1}',
-            style: GoogleFonts.inter(
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          backgroundColor: specificationsColor,
-          behavior: SnackBarBehavior.floating,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          margin: const EdgeInsets.all(12),
-        ),
-      );
-      return;
-    }
+    if (_isSubmitting) return;
 
     setState(() {
+      _isSubmitting = true;
       _saving = true;
       _errorMessage = '';
     });
 
-    print('🚀 Submitting form data for Step ${_currentStep + 1}...');
-
     try {
-      // Get form data
       final stepData = _getCurrentStepData();
-      print('📊 Step Data: $stepData');
-      // stepData['verifiy_vy'] = 'vy';
 
-      // Prepare image files if we're in step 2 (images)
+      // ✅ SIRF EK IMAGE file
       Map<String, File>? imageFiles;
 
       if (_currentStep == 2) {
         imageFiles = {};
 
-        // Check for new image files
         if (_frontViewFile != null) {
           imageFiles['front_view'] = _frontViewFile!;
-          print('📸 Front view image selected');
-        }
-        if (_sideViewFile != null) {
-          imageFiles['side_view'] = _sideViewFile!;
-          print('📸 Side view image selected');
-        }
-        if (_additionalFile != null) {
-          imageFiles['additional'] = _additionalFile!;
-          print('📸 Additional image selected');
-        }
-        if (_locationFile != null) {
-          imageFiles['location'] = _locationFile!;
-          print('📍 Location image selected');
         }
 
-        // If no new files but we have existing URLs in edit mode
-        if (widget.isEditMode && imageFiles.isEmpty) {
-          // Create a map of existing image URLs
-          final Map<String, dynamic> existingImages = {};
-
-          if (_frontViewImageController.text.isNotEmpty) {
-            existingImages['front_view'] = _frontViewImageController.text;
-          }
-          if (_sideViewImageController.text.isNotEmpty) {
-            existingImages['side_view'] = _sideViewImageController.text;
-          }
-          if (_additionalImageController.text.isNotEmpty) {
-            existingImages['additional'] = _additionalImageController.text;
-          }
-          if (_locationImageController.text.isNotEmpty) {
-            existingImages['location'] = _locationImageController.text;
-          }
-
-          if (existingImages.isNotEmpty) {
-            stepData['property_images'] = existingImages;
-            print('🖼️ Existing images data added');
-          }
+        if (imageFiles.isEmpty) {
+          imageFiles = null;
         }
       }
 
-      Map<String, dynamic> response;
+      Map<String, dynamic> apiResponse;
+      Bill updatedBill;
 
-      if (widget.isEditMode && widget.bill != null) {
-        // Edit mode - update current step data
-        print('✏️ Updating bill ID: ${widget.bill!.id}');
+      if (widget.isEditMode || _createdBillId != null) {
+        final billIdToUpdate =
+            widget.isEditMode ? widget.bill!.id! : _createdBillId!;
 
-        response = await _repository.updateCustomer(
-          widget.bill!.id!,
+        apiResponse = await _repository.updateCustomer(
+          billIdToUpdate,
           stepData,
-          imageFiles: imageFiles?.isNotEmpty == true ? imageFiles : null,
+          imageFiles: imageFiles,
         );
-
-        print('✅ Bill update API response received');
-
-        // Show success dialog
-        await _showSuccessDialog();
       } else {
-        // CREATE NEW BILL IS NOT ALLOWED
-        throw Exception('Cannot create new bill. Only update mode is allowed.');
+        throw Exception('Bill ID is required to update a bill.');
       }
 
-      final updatedBill = Bill.fromJson(response);
-      print('📋 Updated Bill: ${updatedBill.id} - ${updatedBill.name}');
-
-      setState(() => _saving = false);
-
-      // Call callback to refresh list if on last step
       if (_currentStep == 2) {
-        widget.onSaveSuccess?.call();
-        print('📞 Calling onSaveSuccess callback');
-        if (mounted) {
-          Navigator.of(context).pop(updatedBill);
+        final Map<String, dynamic> parsedResponse =
+            _parseUpdateResponse(apiResponse);
+        updatedBill = parsedResponse['current'] as Bill;
+        _nextBill = parsedResponse['next'] as Bill?;
+
+        if (_createdBillId == null && updatedBill.id != null) {
+          _createdBillId = updatedBill.id;
         }
+
+        await _showSuccessDialogForImages(updatedBill);
+      } else {
+        updatedBill = _parseBillFromResponse(apiResponse);
+        await _showSimpleSuccessDialog();
+      }
+
+      setState(() {
+        _isSubmitting = false;
+        _saving = false;
+      });
+
+      if (_currentStep == 2) {
+        _handleCompletion(updatedBill);
       }
     } catch (e) {
-      print('❌ Error submitting form: $e');
       setState(() {
+        _isSubmitting = false;
         _saving = false;
         _errorMessage = e.toString();
       });
@@ -405,25 +328,70 @@ class _BillFormScreenState extends State<BillFormScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              'Error: ${e.toString()}',
-              style: GoogleFonts.inter(
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+            content: Text('Error: ${e.toString()}'),
             backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            margin: const EdgeInsets.all(12),
           ),
         );
       }
     }
   }
 
-  Future<void> _showSuccessDialog() async {
+  Map<String, dynamic> _parseUpdateResponse(Map<String, dynamic> apiResponse) {
+    try {
+      if (apiResponse.containsKey('current') &&
+          apiResponse.containsKey('next')) {
+        final currentData = apiResponse['current'];
+        final nextData = apiResponse['next'];
+
+        final Bill currentBill = Bill.fromJson(currentData);
+        Bill? nextBill;
+
+        if (nextData != null) {
+          nextBill = Bill.fromJson(nextData);
+        }
+
+        return {
+          'current': currentBill,
+          'next': nextBill,
+        };
+      }
+
+      final Bill bill = _parseBillFromResponse(apiResponse);
+      return {
+        'current': bill,
+        'next': null,
+      };
+    } catch (e) {
+      print('Error parsing update response: $e');
+      rethrow;
+    }
+  }
+
+  Bill _parseBillFromResponse(Map<String, dynamic> apiResponse) {
+    try {
+      if (apiResponse.containsKey('data')) {
+        final responseData = apiResponse['data'];
+        if (responseData is List && responseData.isNotEmpty) {
+          return Bill.fromJson(responseData[0]);
+        } else if (responseData is Map<String, dynamic>) {
+          return Bill.fromJson(responseData);
+        }
+      }
+      return Bill.fromJson(apiResponse);
+    } catch (e) {
+      print('Error parsing bill from response: $e');
+      rethrow;
+    }
+  }
+
+  void _handleCompletion(Bill updatedBill) {
+    widget.onSaveSuccess?.call();
+    if (mounted) {
+      Navigator.of(context).pop(updatedBill);
+    }
+  }
+
+  Future<void> _showSimpleSuccessDialog() async {
     return showDialog(
       context: context,
       barrierDismissible: false,
@@ -447,9 +415,7 @@ class _BillFormScreenState extends State<BillFormScreen>
             ],
           ),
           content: Text(
-            _currentStep == 2
-                ? 'Images saved successfully! The bill is now complete.'
-                : 'Step ${_currentStep + 1} data saved successfully!',
+            'Data updated successfully!',
             style: GoogleFonts.inter(
               fontSize: 14,
               color: textSecondary,
@@ -457,22 +423,7 @@ class _BillFormScreenState extends State<BillFormScreen>
           ),
           actions: [
             TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                if (_currentStep < 2) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        'Click on next tab to continue',
-                        style: GoogleFonts.inter(fontWeight: FontWeight.w600),
-                      ),
-                      backgroundColor: primaryColor,
-                      behavior: SnackBarBehavior.floating,
-                      duration: const Duration(seconds: 2),
-                    ),
-                  );
-                }
-              },
+              onPressed: () => Navigator.of(context).pop(),
               child: Text(
                 'OK',
                 style: GoogleFonts.inter(
@@ -487,34 +438,252 @@ class _BillFormScreenState extends State<BillFormScreen>
     );
   }
 
-  Future<void> _takePhotoForField(String imageType) async {
+  Future<void> _showSuccessDialogForImages(Bill updatedBill) async {
+    return showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              Icon(Icons.check_circle, color: Colors.green.shade600, size: 24),
+              const SizedBox(width: 10),
+              Text(
+                'Success',
+                style: GoogleFonts.inter(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 18,
+                  color: textPrimary,
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Image saved successfully!',
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  color: textSecondary,
+                ),
+              ),
+              if (_isLocationCaptured) ...[
+                const SizedBox(height: 4),
+                Text(
+                  '📍 Location updated',
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    color: Colors.green.shade700,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 8),
+              if (_nextBill != null)
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.blue.shade100),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.arrow_forward_rounded,
+                          color: Colors.blue.shade600, size: 16),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Next Bill Available',
+                              style: GoogleFonts.inter(
+                                fontSize: 12,
+                                color: Colors.blue.shade800,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Click "Load Next" to fill next bill',
+                              style: GoogleFonts.inter(
+                                fontSize: 10,
+                                color: Colors.blue.shade600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+          actions: [
+            if (_nextBill != null)
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  _loadNextRecord();
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue.shade600,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: Text(
+                  'Load Next',
+                  style: GoogleFonts.inter(
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            if (_nextBill == null)
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  _handleCompletion(updatedBill);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green.shade600,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: Text(
+                  'Return to List',
+                  style: GoogleFonts.inter(
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _loadNextRecord() {
+    if (_nextBill == null) return;
+
+    _clearAllControllers();
+    _loadNextBillData(_nextBill!);
+    _tabController.animateTo(0);
+    _clearImageFiles();
+    _createdBillId = _nextBill!.id;
+    _nextBill = null;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Next bill loaded successfully!',
+          style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+        ),
+        backgroundColor: Colors.blue,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _loadNextBillData(Bill nextBill) {
+    // Step 1 - READ ONLY
+    _municipalityNameController.text = nextBill.municipalityName ?? '';
+    _propertyIdController.text = nextBill.propertyDetailsPropertyId ?? '';
+    _ownerNameController.text = nextBill.name ?? '';
+    _mobileController.text = nextBill.mobileNo ?? '';
+
+    // Step 2 - READ ONLY
+    _step2PropertyIdController.text = nextBill.integratedPidPropertyId ?? '';
+    _step2OwnerNameController.text =
+        nextBill.integratedPidOwnerOccupierName ?? '';
+    _areaOfAuthorityController.text = nextBill.areaOfAuthority ?? '';
+    _colonyNameController.text = nextBill.colonyName ?? '';
+    _addressController.text = nextBill.addressOfProperty ?? '';
+    _categoryController.text = nextBill.category ?? '';
+    _totalAreaController.text = nextBill.totalArea ?? '';
+    _unitController.text = nextBill.unit ?? '';
+    _authorizationStatusController.text = nextBill.authorizationStatus ?? '';
+
+    // ✅ SIRF EK IMAGE
+    _frontViewImageController.text = nextBill.frontViewUrl ?? '';
+
+    // ✅ Load latitude and longitude
+    _currentLatitude = double.tryParse(nextBill.latitude ?? '');
+    _currentLongitude = double.tryParse(nextBill.longitude ?? '');
+    _isLocationCaptured = _currentLatitude != null && _currentLongitude != null;
+  }
+
+  void _clearAllControllers() {
+    _municipalityNameController.clear();
+    _propertyIdController.clear();
+    _ownerNameController.clear();
+    _mobileController.clear();
+    _step2PropertyIdController.clear();
+    _step2OwnerNameController.clear();
+    _areaOfAuthorityController.clear();
+    _colonyNameController.clear();
+    _addressController.clear();
+    _categoryController.clear();
+    _totalAreaController.clear();
+    _unitController.clear();
+    _authorizationStatusController.clear();
+    _frontViewImageController.clear();
+
+    // ✅ Reset location
+    _currentLatitude = null;
+    _currentLongitude = null;
+    _isLocationCaptured = false;
+  }
+
+  void _clearImageFiles() {
+    setState(() {
+      _frontViewFile = null;
+    });
+  }
+
+  // ✅ Take photo from camera
+  Future<void> _takePhoto() async {
     try {
       final pickedFile = await _imagePicker.pickImage(
         source: ImageSource.camera,
         imageQuality: 85,
+        maxWidth: 1200,
+        maxHeight: 1200,
       );
 
       if (pickedFile != null) {
         final file = File(pickedFile.path);
 
         setState(() {
-          switch (imageType) {
-            case 'front_view':
-              _frontViewFile = file;
-              break;
-            case 'side_view':
-              _sideViewFile = file;
-              break;
-            case 'additional':
-              _additionalFile = file;
-              break;
-            case 'location':
-              _locationFile = file;
-              break;
-          }
+          _frontViewFile = file;
         });
 
-        print('📸 Photo taken for $imageType');
+        // ✅ Auto-capture location when taking photo
+        _captureLocationForUpdate();
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Photo taken. Click "Update" to save.',
+              style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+            ),
+            backgroundColor: photosColor,
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 2),
+          ),
+        );
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -526,41 +695,7 @@ class _BillFormScreenState extends State<BillFormScreen>
     }
   }
 
-  void _showImageSourceDialog(String label, String imageType) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text(
-            label,
-            style: GoogleFonts.inter(
-              fontWeight: FontWeight.w700,
-              color: textPrimary,
-            ),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading:
-                    const Icon(Icons.camera_alt_rounded, color: photosColor),
-                title: Text(
-                  'Take Photo',
-                  style: GoogleFonts.inter(fontWeight: FontWeight.w600),
-                ),
-                onTap: () {
-                  Navigator.pop(context);
-                  _takePhotoForField(imageType);
-                },
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  void _showRemoveImageDialog(String label, String imageType) {
+  void _showRemoveImageDialog() {
     showDialog(
       context: context,
       builder: (context) {
@@ -583,7 +718,7 @@ class _BillFormScreenState extends State<BillFormScreen>
             ],
           ),
           content: Text(
-            'Are you sure you want to remove $label? This action cannot be undone.',
+            'Are you sure you want to remove this image?',
             style: GoogleFonts.inter(
               fontSize: 14,
               color: textSecondary,
@@ -604,26 +739,13 @@ class _BillFormScreenState extends State<BillFormScreen>
               onPressed: () {
                 Navigator.of(context).pop();
                 setState(() {
-                  switch (imageType) {
-                    case 'front_view':
-                      _frontViewFile = null;
-                      break;
-                    case 'side_view':
-                      _sideViewFile = null;
-                      break;
-                    case 'additional':
-                      _additionalFile = null;
-                      break;
-                    case 'location':
-                      _locationFile = null;
-                      break;
-                  }
+                  _frontViewFile = null;
                 });
 
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(
-                      '$label removed. Click "Update" to save changes.',
+                      'Image removed. Click "Update" to save changes.',
                       style: GoogleFonts.inter(fontWeight: FontWeight.w600),
                     ),
                     backgroundColor: photosColor,
@@ -669,7 +791,7 @@ class _BillFormScreenState extends State<BillFormScreen>
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              widget.isEditMode ? 'Update Bill' : 'New Bill Entry',
+              widget.isEditMode ? 'View Bill' : 'Bill Entry',
               style: GoogleFonts.poppins(
                 color: textPrimary,
                 fontWeight: FontWeight.w800,
@@ -778,9 +900,9 @@ class _BillFormScreenState extends State<BillFormScreen>
               controller: _tabController,
               physics: const NeverScrollableScrollPhysics(),
               children: [
-                _buildStep1(),
-                _buildStep2(),
-                _buildStep3(),
+                _buildStep1(), // ✅ READ ONLY
+                _buildStep2(), // ✅ READ ONLY
+                _buildStep3(), // ✅ SIRF EK IMAGE + LOCATION BACKGROUND
               ],
             ),
           ),
@@ -839,199 +961,184 @@ class _BillFormScreenState extends State<BillFormScreen>
       Icons.image_rounded,
     ];
     final stepColors = [primaryColor, locationColor, specificationsColor];
-    final stepTitles = ['Basic Info', 'Property Details', 'Images'];
+    final stepTitles = ['Basic Info', 'Property Details', 'Image'];
 
-    return GestureDetector(
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 10),
-        padding: const EdgeInsets.all(5),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.08),
-              blurRadius: 15,
-              offset: const Offset(0, 3),
-            ),
-          ],
-        ),
-        child: Row(
-          children: List.generate(3, (index) {
-            final isActive = index == _currentStep;
-            final isCompleted = index < _currentStep;
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 10),
+      padding: const EdgeInsets.all(5),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 15,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Row(
+        children: List.generate(3, (index) {
+          final isActive = index == _currentStep;
+          final isCompleted = index < _currentStep;
 
-            return Expanded(
-              child: GestureDetector(
-                onTap: () {
-                  _tabController.animateTo(index);
-                },
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeInOut,
-                  padding:
-                      const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
-                  decoration: BoxDecoration(
-                    gradient: isActive
-                        ? LinearGradient(
-                            colors: [
-                              stepColors[index],
-                              stepColors[index].withOpacity(0.8),
-                            ],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          )
-                        : null,
-                    color: isActive ? null : Colors.transparent,
-                    borderRadius: BorderRadius.circular(14),
-                    boxShadow: isActive
-                        ? [
-                            BoxShadow(
-                              color: stepColors[index].withOpacity(0.3),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ]
-                        : null,
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 28,
-                        height: 28,
-                        decoration: BoxDecoration(
-                          color: isActive
-                              ? Colors.white.withOpacity(0.25)
-                              : (isCompleted
-                                  ? stepColors[index].withOpacity(0.15)
-                                  : Colors.transparent),
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: isActive
-                                ? Colors.white
-                                : (isCompleted
-                                    ? stepColors[index]
-                                    : tabUnselectedColor),
-                            width: 1.5,
+          return Expanded(
+            child: GestureDetector(
+              onTap: () => _tabController.animateTo(index),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeInOut,
+                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+                decoration: BoxDecoration(
+                  gradient: isActive
+                      ? LinearGradient(
+                          colors: [
+                            stepColors[index],
+                            stepColors[index].withOpacity(0.8),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        )
+                      : null,
+                  color: isActive ? null : Colors.transparent,
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: isActive
+                      ? [
+                          BoxShadow(
+                            color: stepColors[index].withOpacity(0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
                           ),
-                        ),
-                        child: Center(
-                          child: isCompleted
-                              ? Icon(
-                                  Icons.check_rounded,
-                                  color: stepColors[index],
-                                  size: 16,
-                                )
-                              : Icon(
-                                  stepIcons[index],
-                                  color: isActive
-                                      ? Colors.white
-                                      : tabUnselectedColor,
-                                  size: 14,
-                                ),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        stepTitles[index],
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.inter(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
+                        ]
+                      : null,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 28,
+                      height: 28,
+                      decoration: BoxDecoration(
+                        color: isActive
+                            ? Colors.white.withOpacity(0.25)
+                            : (isCompleted
+                                ? stepColors[index].withOpacity(0.15)
+                                : Colors.transparent),
+                        shape: BoxShape.circle,
+                        border: Border.all(
                           color: isActive
                               ? Colors.white
                               : (isCompleted
                                   ? stepColors[index]
                                   : tabUnselectedColor),
-                          letterSpacing: 0.2,
+                          width: 1.5,
                         ),
                       ),
-                    ],
-                  ),
+                      child: Center(
+                        child: isCompleted
+                            ? Icon(
+                                Icons.check_rounded,
+                                color: stepColors[index],
+                                size: 16,
+                              )
+                            : Icon(
+                                stepIcons[index],
+                                color: isActive
+                                    ? Colors.white
+                                    : tabUnselectedColor,
+                                size: 14,
+                              ),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      stepTitles[index],
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.inter(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: isActive
+                            ? Colors.white
+                            : (isCompleted
+                                ? stepColors[index]
+                                : tabUnselectedColor),
+                        letterSpacing: 0.2,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            );
-          }),
-        ),
+            ),
+          );
+        }),
       ),
     );
   }
 
+  // ✅ STEP 1 - READ ONLY
   Widget _buildStep1() {
     return SingleChildScrollView(
       child: Padding(
         padding: const EdgeInsets.all(8),
-        child: Form(
-          key: _formKey,
-          child: Container(
-            decoration: BoxDecoration(
-              color: cardColor,
-              borderRadius: BorderRadius.circular(18),
-              border:
-                  Border.all(color: primaryColor.withOpacity(0.1), width: 1),
-              boxShadow: [
-                BoxShadow(
-                  color: primaryColor.withOpacity(0.08),
-                  blurRadius: 15,
-                  offset: const Offset(0, 3),
+        child: Container(
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: primaryColor.withOpacity(0.1), width: 1),
+            boxShadow: [
+              BoxShadow(
+                color: primaryColor.withOpacity(0.08),
+                blurRadius: 15,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              const SizedBox(height: 8),
+              _buildReadOnlyTextField(
+                controller: _municipalityNameController,
+                label: 'Municipality Name',
+                icon: Icons.location_city_rounded,
+              ),
+              const SizedBox(height: 8),
+              _buildReadOnlyTextField(
+                controller: _propertyIdController,
+                label: 'Property Id',
+                icon: Icons.tag_rounded,
+              ),
+              const SizedBox(height: 8),
+              _buildReadOnlyTextField(
+                controller: _ownerNameController,
+                label: 'Owner/Occupier Name',
+                icon: Icons.person_outline_rounded,
+              ),
+              const SizedBox(height: 8),
+              _buildReadOnlyTextField(
+                controller: _mobileController,
+                label: 'Mobile No.',
+                icon: Icons.phone_android_rounded,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'This information cannot be edited',
+                style: GoogleFonts.inter(
+                  fontSize: 11,
+                  color: Colors.grey.shade600,
+                  fontStyle: FontStyle.italic,
+                  fontWeight: FontWeight.w600,
                 ),
-              ],
-            ),
-            child: Column(
-              children: [
-                const SizedBox(height: 8),
-                _buildCompactTextField(
-                  controller: _municipalityNameController,
-                  label: 'Municipality Name', // ✅ * HATA DIYA
-                  icon: Icons.location_city_rounded,
-                ),
-                const SizedBox(height: 8),
-                _buildCompactTextField(
-                  controller: _propertyIdController,
-                  label: 'Property Id', // ✅ * HATA DIYA
-                  icon: Icons.tag_rounded,
-                ),
-                const SizedBox(height: 8),
-                _buildCompactTextField(
-                  controller: _ownerNameController,
-                  label: 'Owner/Occupier Name', // ✅ * HATA DIYA
-                  icon: Icons.person_outline_rounded,
-                ),
-                const SizedBox(height: 8),
-                _buildCompactTextField(
-                  controller: _mobileController,
-                  label: 'Mobile No.',
-                  icon: Icons.phone_android_rounded,
-                  keyboardType: TextInputType.phone,
-                  validator: (value) {
-                    if (value != null &&
-                        value.isNotEmpty &&
-                        value.length < 10) {
-                      return 'Enter valid mobile number';
-                    }
-                    return null; // ✅ खाली भी रह सकता है
-                  },
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Note: You can update any field. All fields are optional.', // ✅ Updated message
-                  style: GoogleFonts.inter(
-                    fontSize: 11,
-                    color: textSecondary,
-                    fontStyle: FontStyle.italic,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 8),
-              ],
-            ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+            ],
           ),
         ),
       ),
     );
   }
 
+  // ✅ STEP 2 - READ ONLY
   Widget _buildStep2() {
     return SingleChildScrollView(
       child: Padding(
@@ -1052,68 +1159,68 @@ class _BillFormScreenState extends State<BillFormScreen>
           child: Column(
             children: [
               const SizedBox(height: 8),
-              _buildCompactTextField(
+              _buildReadOnlyTextField(
                 controller: _step2PropertyIdController,
-                label: 'Property Id', // ✅ * HATA DIYA
+                label: 'Property Id',
                 icon: Icons.tag_rounded,
               ),
               const SizedBox(height: 8),
-              _buildCompactTextField(
+              _buildReadOnlyTextField(
                 controller: _step2OwnerNameController,
-                label: 'Owner/Occupier Name', // ✅ * HATA DIYA
+                label: 'Owner/Occupier Name',
                 icon: Icons.person_outline_rounded,
               ),
               const SizedBox(height: 8),
-              _buildCompactTextField(
+              _buildReadOnlyTextField(
                 controller: _areaOfAuthorityController,
-                label: 'Area Of the Authority', // ✅ * HATA DIYA
+                label: 'Area Of the Authority',
                 icon: Icons.map_rounded,
               ),
               const SizedBox(height: 8),
-              _buildCompactTextField(
+              _buildReadOnlyTextField(
                 controller: _colonyNameController,
-                label: 'Name Of the Colony', // ✅ * HATA DIYA
+                label: 'Name Of the Colony',
                 icon: Icons.landscape_rounded,
               ),
               const SizedBox(height: 8),
-              _buildCompactTextField(
+              _buildReadOnlyTextField(
                 controller: _addressController,
-                label: 'Address of Property', // ✅ * HATA DIYA
+                label: 'Address of Property',
                 icon: Icons.home_rounded,
                 maxLines: 2,
               ),
               const SizedBox(height: 8),
-              _buildCompactTextField(
+              _buildReadOnlyTextField(
                 controller: _categoryController,
-                label: 'Category', // ✅ * HATA DIYA
+                label: 'Category',
                 icon: Icons.category_rounded,
               ),
               const SizedBox(height: 8),
-              _buildCompactTextField(
+              _buildReadOnlyTextField(
                 controller: _totalAreaController,
-                label: 'Total Area', // ✅ * HATA DIYA
+                label: 'Total Area',
                 icon: Icons.aspect_ratio_rounded,
-                keyboardType: TextInputType.number,
               ),
               const SizedBox(height: 8),
-              _buildCompactTextField(
+              _buildReadOnlyTextField(
                 controller: _unitController,
-                label: 'Unit', // ✅ * HATA DIYA
+                label: 'Unit',
                 icon: Icons.square_foot_rounded,
               ),
               const SizedBox(height: 8),
-              _buildCompactTextField(
+              _buildReadOnlyTextField(
                 controller: _authorizationStatusController,
-                label: 'Authorized Area / Unauthorized', // ✅ * HATA DIYA
+                label: 'Authorized Area / Unauthorized',
                 icon: Icons.verified_rounded,
               ),
               const SizedBox(height: 8),
               Text(
-                'Note: Update as many fields as needed. All fields are optional.', // ✅ Updated message
+                'This information cannot be edited',
                 style: GoogleFonts.inter(
                   fontSize: 11,
-                  color: textSecondary,
+                  color: Colors.grey.shade600,
                   fontStyle: FontStyle.italic,
+                  fontWeight: FontWeight.w600,
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -1125,12 +1232,80 @@ class _BillFormScreenState extends State<BillFormScreen>
     );
   }
 
+  // ✅ STEP 3 - SIRF EK IMAGE, KOI LOCATION INPUT FIELD NAHI
   Widget _buildStep3() {
     return SingleChildScrollView(
       child: Padding(
         padding: const EdgeInsets.all(8),
         child: Column(
           children: [
+            // ✅ LOCATION STATUS - SIRF STATUS, KOI INPUT FIELD NAHI
+            // Container(
+            //   decoration: BoxDecoration(
+            //     color: cardColor,
+            //     borderRadius: BorderRadius.circular(18),
+            //     border:
+            //         Border.all(color: locationColor.withOpacity(0.2), width: 1),
+            //     boxShadow: [
+            //       BoxShadow(
+            //         color: locationColor.withOpacity(0.08),
+            //         blurRadius: 15,
+            //         offset: const Offset(0, 3),
+            //       ),
+            //     ],
+            //   ),
+            //   child: Padding(
+            //     padding: const EdgeInsets.all(16),
+            //     child: Row(
+            //       children: [
+            //         Container(
+            //           padding: const EdgeInsets.all(10),
+            //           decoration: BoxDecoration(
+            //             color: locationColor.withOpacity(0.1),
+            //             borderRadius: BorderRadius.circular(12),
+            //           ),
+            //           child: Icon(
+            //             Icons.location_on_rounded,
+            //             color: locationColor,
+            //             size: 24,
+            //           ),
+            //         ),
+            //         const SizedBox(width: 16),
+            //         // Expanded(
+            //         //   child: Column(
+            //         //     crossAxisAlignment: CrossAxisAlignment.start,
+            //         //     children: [
+            //         //       Text(
+            //         //         'GPS Location',
+            //         //         style: GoogleFonts.inter(
+            //         //           fontSize: 15,
+            //         //           fontWeight: FontWeight.w700,
+            //         //           color: textPrimary,
+            //         //         ),
+            //         //       ),
+            //         //       const SizedBox(height: 4),
+            //         //       Text(
+            //         //         _isLocationCaptured
+            //         //             ? '📍 Location ready to update'
+            //         //             : '📍 Tap camera to capture location',
+            //         //         style: GoogleFonts.inter(
+            //         //           fontSize: 12,
+            //         //           color: _isLocationCaptured
+            //         //               ? Colors.green.shade700
+            //         //               : Colors.grey.shade600,
+            //         //           fontWeight: FontWeight.w500,
+            //         //         ),
+            //         //       ),
+            //         //     ],
+            //         //   ),
+            //         // ),
+            //       ],
+            //     ),
+            //   ),
+            // ),
+            // const SizedBox(height: 12),
+
+            // ✅ SIRF EK IMAGE - FRONT VIEW
             Container(
               decoration: BoxDecoration(
                 color: cardColor,
@@ -1152,76 +1327,14 @@ class _BillFormScreenState extends State<BillFormScreen>
                     padding: const EdgeInsets.symmetric(horizontal: 10),
                     child: Column(
                       children: [
-                        // Front View Image Field
                         if (widget.isEditMode &&
-                            widget.bill?.frontViewUrl != null &&
-                            widget.bill!.frontViewUrl!.isNotEmpty)
-                          _buildImagePreview(
-                            imageUrl: widget.bill!.frontViewUrl!,
-                            label: 'Front View Image',
-                            imageType: 'front_view',
-                          )
+                            _frontViewImageController.text.isNotEmpty)
+                          _buildImagePreview()
                         else
-                          _buildImageField(
-                            label: 'Front View Image',
-                            icon: Icons.home_rounded,
-                            imageType: 'front_view',
-                          ),
+                          _buildImageField(),
                         const SizedBox(height: 8),
-
-                        // Side View Image Field
-                        if (widget.isEditMode &&
-                            widget.bill?.sideViewUrl != null &&
-                            widget.bill!.sideViewUrl!.isNotEmpty)
-                          _buildImagePreview(
-                            imageUrl: widget.bill!.sideViewUrl!,
-                            label: 'Side View Image',
-                            imageType: 'side_view',
-                          )
-                        else
-                          _buildImageField(
-                            label: 'Side View Image',
-                            icon: Icons.camera_alt_rounded,
-                            imageType: 'side_view',
-                          ),
-                        const SizedBox(height: 8),
-
-                        // Additional Images Field
-                        if (widget.isEditMode &&
-                            widget.bill?.additionalUrl != null &&
-                            widget.bill!.additionalUrl!.isNotEmpty)
-                          _buildImagePreview(
-                            imageUrl: widget.bill!.additionalUrl!,
-                            label: 'Additional Images',
-                            imageType: 'additional',
-                          )
-                        else
-                          _buildImageField(
-                            label: 'Additional Images',
-                            icon: Icons.add_photo_alternate_rounded,
-                            imageType: 'additional',
-                          ),
-                        const SizedBox(height: 8),
-
-                        // Location Image Field
-                        if (widget.isEditMode &&
-                            widget.bill?.locationUrl != null &&
-                            widget.bill!.locationUrl!.isNotEmpty)
-                          _buildImagePreview(
-                            imageUrl: widget.bill!.locationUrl!,
-                            label: 'Location Image',
-                            imageType: 'location',
-                          )
-                        else
-                          _buildImageField(
-                            label: 'Location Image',
-                            icon: Icons.map_rounded,
-                            imageType: 'location',
-                          ),
-                        const SizedBox(height: 8),
-
                         Text(
-                          'Note: Images are optional. You can add or update later.',
+                          'Take a photo - Location will be auto-captured',
                           style: GoogleFonts.inter(
                             fontSize: 11,
                             color: textSecondary,
@@ -1244,18 +1357,72 @@ class _BillFormScreenState extends State<BillFormScreen>
     );
   }
 
-  Widget _buildImagePreview({
-    required String imageUrl,
+  // ✅ READ ONLY TEXT FIELD
+  Widget _buildReadOnlyTextField({
+    required TextEditingController controller,
     required String label,
-    required String imageType,
+    required IconData icon,
+    int maxLines = 1,
   }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      child: SizedBox(
+        height: maxLines > 1 ? null : 46,
+        child: TextFormField(
+          controller: controller,
+          maxLines: maxLines,
+          readOnly: true,
+          style: GoogleFonts.inter(
+            fontSize: 14,
+            color: textPrimary,
+            fontWeight: FontWeight.w600,
+          ),
+          decoration: InputDecoration(
+            labelText: label,
+            labelStyle: GoogleFonts.inter(
+              fontSize: 12,
+              color: textSecondary,
+              fontWeight: FontWeight.w600,
+            ),
+            prefixIcon: Container(
+              margin: const EdgeInsets.only(right: 10),
+              padding: const EdgeInsets.all(7),
+              child: Icon(icon, size: 18, color: textPrimary),
+            ),
+            filled: true,
+            fillColor: Colors.grey.shade50,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 12,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: borderColor, width: 1.2),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide:
+                  BorderSide(color: textPrimary.withOpacity(0.5), width: 1.5),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ✅ IMAGE PREVIEW - SIRF EK IMAGE
+  Widget _buildImagePreview() {
     return Material(
       color: Colors.transparent,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            label,
+            'Front View Image',
             style: GoogleFonts.inter(
               fontSize: 13,
               fontWeight: FontWeight.w700,
@@ -1280,10 +1447,9 @@ class _BillFormScreenState extends State<BillFormScreen>
             ),
             child: Column(
               children: [
-                // Image Preview
                 Container(
                   width: double.infinity,
-                  height: 150,
+                  height: 200,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(8),
                     color: Colors.grey.shade100,
@@ -1291,7 +1457,7 @@ class _BillFormScreenState extends State<BillFormScreen>
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(8),
                     child: Image.network(
-                      imageUrl,
+                      _frontViewImageController.text,
                       fit: BoxFit.cover,
                       errorBuilder: (context, error, stackTrace) {
                         return Center(
@@ -1301,13 +1467,13 @@ class _BillFormScreenState extends State<BillFormScreen>
                               Icon(
                                 Icons.broken_image_rounded,
                                 color: Colors.grey.shade400,
-                                size: 40,
+                                size: 48,
                               ),
-                              const SizedBox(height: 4),
+                              const SizedBox(height: 8),
                               Text(
                                 'Image not available',
                                 style: GoogleFonts.inter(
-                                  fontSize: 10,
+                                  fontSize: 12,
                                   color: Colors.grey.shade600,
                                 ),
                               ),
@@ -1331,54 +1497,17 @@ class _BillFormScreenState extends State<BillFormScreen>
                     ),
                   ),
                 ),
-                const SizedBox(height: 8),
-
-                // Image Path
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade50,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.grey.shade200),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          imageUrl,
-                          style: GoogleFonts.inter(
-                            fontSize: 11,
-                            color: Colors.grey.shade700,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                          maxLines: 1,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Icon(
-                        Icons.link_rounded,
-                        size: 14,
-                        color: Colors.grey.shade500,
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 8),
-
-                // Action Buttons
+                const SizedBox(height: 12),
                 Row(
                   children: [
                     Expanded(
                       child: ElevatedButton.icon(
-                        onPressed: () {
-                          _showImageSourceDialog(label, imageType);
-                        },
-                        icon: const Icon(Icons.change_circle_rounded, size: 16),
+                        onPressed: _takePhoto,
+                        icon: const Icon(Icons.change_circle_rounded, size: 18),
                         label: Text(
                           'Change Image',
                           style: GoogleFonts.inter(
-                            fontSize: 12,
+                            fontSize: 13,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -1390,14 +1519,14 @@ class _BillFormScreenState extends State<BillFormScreen>
                             borderRadius: BorderRadius.circular(8),
                             side: BorderSide(color: photosColor, width: 1),
                           ),
-                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
                         ),
                       ),
                     ),
                     const SizedBox(width: 8),
                     Container(
-                      width: 40,
-                      height: 40,
+                      width: 48,
+                      height: 48,
                       decoration: BoxDecoration(
                         color: Colors.red.shade50,
                         borderRadius: BorderRadius.circular(8),
@@ -1405,12 +1534,10 @@ class _BillFormScreenState extends State<BillFormScreen>
                             Border.all(color: Colors.red.shade200, width: 1),
                       ),
                       child: IconButton(
-                        onPressed: () {
-                          _showRemoveImageDialog(label, imageType);
-                        },
+                        onPressed: _showRemoveImageDialog,
                         icon: Icon(
                           Icons.delete_rounded,
-                          size: 18,
+                          size: 20,
                           color: Colors.red.shade600,
                         ),
                         padding: EdgeInsets.zero,
@@ -1426,43 +1553,17 @@ class _BillFormScreenState extends State<BillFormScreen>
     );
   }
 
-  Widget _buildImageField({
-    required String label,
-    required IconData icon,
-    required String imageType,
-  }) {
-    final bool hasImage = imageType == 'front_view' && _frontViewFile != null ||
-        imageType == 'side_view' && _sideViewFile != null ||
-        imageType == 'additional' && _additionalFile != null ||
-        imageType == 'location' && _locationFile != null;
-
-    String displayText = '';
-    if (hasImage) {
-      switch (imageType) {
-        case 'front_view':
-          displayText = _frontViewFile?.path ?? '';
-          break;
-        case 'side_view':
-          displayText = _sideViewFile?.path ?? '';
-          break;
-        case 'additional':
-          displayText = _additionalFile?.path ?? '';
-          break;
-        case 'location':
-          displayText = _locationFile?.path ?? '';
-          break;
-      }
-    }
+  // ✅ IMAGE FIELD - SIRF EK IMAGE
+  Widget _buildImageField() {
+    final bool hasImage = _frontViewFile != null;
 
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () {
-          _showImageSourceDialog(label, imageType);
-        },
+        onTap: _takePhoto,
         borderRadius: BorderRadius.circular(12),
         child: Container(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [
@@ -1478,14 +1579,14 @@ class _BillFormScreenState extends State<BillFormScreen>
           child: Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [photosColor, photosColor.withOpacity(0.7)],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(10),
                   boxShadow: [
                     BoxShadow(
                       color: photosColor.withOpacity(0.2),
@@ -1494,32 +1595,31 @@ class _BillFormScreenState extends State<BillFormScreen>
                     ),
                   ],
                 ),
-                child: Icon(icon, size: 18, color: Colors.white),
+                child: Icon(Icons.home_rounded, size: 24, color: Colors.white),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      label,
+                      'Front View Image',
                       style: GoogleFonts.inter(
-                        fontSize: 13,
+                        fontSize: 15,
                         fontWeight: FontWeight.w700,
                         color: textPrimary,
                         letterSpacing: 0.2,
                       ),
                     ),
-                    if (hasImage && displayText.isNotEmpty)
+                    if (hasImage)
                       Padding(
-                        padding: const EdgeInsets.only(top: 2),
+                        padding: const EdgeInsets.only(top: 4),
                         child: Text(
-                          displayText.length > 30
-                              ? '${displayText.substring(0, 30)}...'
-                              : displayText,
+                          'Photo taken - Ready to upload',
                           style: GoogleFonts.inter(
-                            fontSize: 10,
-                            color: textSecondary,
+                            fontSize: 11,
+                            color: Colors.green.shade700,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ),
@@ -1527,14 +1627,14 @@ class _BillFormScreenState extends State<BillFormScreen>
                 ),
               ),
               Container(
-                padding: const EdgeInsets.all(6),
+                padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   color: photosColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(
-                  hasImage ? Icons.check_circle : Icons.upload_rounded,
-                  size: 16,
+                  hasImage ? Icons.check_circle : Icons.camera_alt_rounded,
+                  size: 20,
                   color: hasImage ? Colors.green : Colors.black54,
                 ),
               ),
@@ -1566,177 +1666,104 @@ class _BillFormScreenState extends State<BillFormScreen>
         top: false,
         child: Row(
           children: [
-            // Update button for current step
             Expanded(
-              child: Container(
-                height: 48,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: _currentStep == 0
-                        ? [primaryColor, primaryColor.withOpacity(0.8)]
-                        : _currentStep == 1
-                            ? [locationColor, locationColor.withOpacity(0.8)]
-                            : [photosColor, photosColor.withOpacity(0.8)],
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
-                  ),
-                  borderRadius: BorderRadius.circular(14),
-                  boxShadow: [
-                    BoxShadow(
-                      color: (_currentStep == 0
-                              ? primaryColor
-                              : _currentStep == 1
-                                  ? locationColor
-                                  : photosColor)
-                          .withOpacity(0.4),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
+              child: AbsorbPointer(
+                absorbing: _saving || _isSubmitting,
+                child: Container(
+                  height: 52,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: _currentStep == 2
+                          ? [photosColor, photosColor.withOpacity(0.8)]
+                          : [Colors.grey, Colors.grey.withOpacity(0.8)],
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
                     ),
-                  ],
-                ),
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: _saving ? null : _submitForm,
                     borderRadius: BorderRadius.circular(14),
-                    child: _saving
-                        ? const Center(
-                            child: SizedBox(
-                              height: 22,
-                              width: 22,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2.5,
-                                color: Colors.white,
-                              ),
-                            ),
-                          )
-                        : Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.update_rounded,
-                                size: 20,
-                                color: Colors.white,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Update',
-                                style: GoogleFonts.inter(
+                    boxShadow: [
+                      BoxShadow(
+                        color: (_currentStep == 2 ? photosColor : Colors.grey)
+                            .withOpacity(0.4),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: _currentStep == 2 ? _submitForm : null,
+                      borderRadius: BorderRadius.circular(14),
+                      child: _saving
+                          ? const Center(
+                              child: SizedBox(
+                                height: 24,
+                                width: 24,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.5,
                                   color: Colors.white,
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 14,
-                                  letterSpacing: 0.3,
                                 ),
                               ),
-                            ],
-                          ),
+                            )
+                          : Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  _currentStep == 2
+                                      ? Icons.update_rounded
+                                      : Icons.lock_rounded,
+                                  size: 20,
+                                  color: Colors.white,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  _currentStep == 2 ? 'Update' : 'Read Only',
+                                  style: GoogleFonts.inter(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 15,
+                                    letterSpacing: 0.3,
+                                  ),
+                                ),
+                              ],
+                            ),
+                    ),
                   ),
                 ),
               ),
             ),
             if (_currentStep > 0) const SizedBox(width: 10),
-            // Previous button only for steps 1 and 2
             if (_currentStep > 0)
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: _currentStep == 1 ? primaryColor : locationColor,
-                    width: 1.5,
-                  ),
-                ),
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: _previousStep,
+              AbsorbPointer(
+                absorbing: _saving || _isSubmitting,
+                child: Container(
+                  width: 52,
+                  height: 52,
+                  decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(14),
-                    child: Center(
-                      child: Icon(
-                        Icons.arrow_back_rounded,
-                        size: 20,
-                        color: _currentStep == 1 ? primaryColor : locationColor,
+                    border: Border.all(
+                      color: _currentStep == 1 ? primaryColor : locationColor,
+                      width: 1.5,
+                    ),
+                  ),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: _previousStep,
+                      borderRadius: BorderRadius.circular(14),
+                      child: Center(
+                        child: Icon(
+                          Icons.arrow_back_rounded,
+                          size: 22,
+                          color:
+                              _currentStep == 1 ? primaryColor : locationColor,
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCompactTextField({
-    required TextEditingController controller,
-    required String label,
-    required IconData icon,
-    String? Function(String?)? validator,
-    int maxLines = 1,
-    TextInputType? keyboardType,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 10),
-      child: SizedBox(
-        height: maxLines > 1 ? null : 46,
-        child: TextFormField(
-          controller: controller,
-          maxLines: maxLines,
-          keyboardType: keyboardType,
-          style: GoogleFonts.inter(
-            fontSize: 14,
-            color: textPrimary,
-            fontWeight: FontWeight.w600,
-          ),
-          decoration: InputDecoration(
-            labelText: label,
-            labelStyle: GoogleFonts.inter(
-              fontSize: 12,
-              color: textSecondary,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.1,
-            ),
-            prefixIcon: Container(
-              margin: const EdgeInsets.only(right: 10),
-              padding: const EdgeInsets.all(7),
-              child: Icon(icon, size: 18, color: textPrimary),
-            ),
-            filled: true,
-            fillColor: backgroundColor,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 14,
-              vertical: 12,
-            ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide.none,
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: borderColor, width: 1.2),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: textPrimary, width: 2),
-            ),
-            errorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide:
-                  const BorderSide(color: specificationsColor, width: 1.2),
-            ),
-            focusedErrorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide:
-                  const BorderSide(color: specificationsColor, width: 2),
-            ),
-            errorStyle: GoogleFonts.inter(
-              fontSize: 10,
-              height: 0.7,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          validator: validator,
         ),
       ),
     );
