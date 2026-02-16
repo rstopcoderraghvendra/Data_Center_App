@@ -4,6 +4,7 @@ import 'package:data_care_app/data/repositories/customer_repository.dart';
 import 'package:data_care_app/features/bill_distribution/screens/model/bill_model.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import 'package:geolocator/geolocator.dart';
@@ -78,6 +79,10 @@ class _BillFormScreenState extends State<BillFormScreen>
   static const Color photosColor = Color(0xFF10B981);
   static const Color backgroundColor = Color(0xFFF8FAFC);
   static const Color borderColor = Color(0xFFE2E8F0);
+  static const Color cardColor = Colors.white;
+  static const Color textPrimary = Color(0xFF111827);
+  static const Color textSecondary = Color(0xFF6B7280);
+  static const Color tabUnselectedColor = Color(0xFF9CA3AF);
 
   static const double _radius = 14;
 
@@ -138,9 +143,7 @@ class _BillFormScreenState extends State<BillFormScreen>
   @override
   void dispose() {
     _tabController.dispose();
-    _imageScrollController.dispose();
-
-    _nameController.dispose();
+    _municipalityNameController.dispose();
     _propertyIdController.dispose();
     _ownerNameController.dispose();
     _mobileController.dispose();
@@ -432,6 +435,7 @@ class _BillFormScreenState extends State<BillFormScreen>
         );
       },
     );
+  }
 
   Future<void> _showSuccessDialogForImages(Bill updatedBill) async {
     return showDialog(
@@ -885,18 +889,9 @@ class _BillFormScreenState extends State<BillFormScreen>
     );
   }
 
-  Widget _stepBasic() {
-    return _card(
-      Column(
-        children: [
-          _field(_nameController, 'Owner name'),
-          _field(_propertyIdController, 'Property ID'),
-          _field(_municipalityController, 'Municipality'),
-          _field(_mobileController, 'Mobile'),
-        ],
-      ),
-    );
-  }
+  Widget _buildStepIndicator() => const SizedBox.shrink();
+
+  Widget _bottomBar() => _buildNavigationButtons();
 
   Widget _buildClickableTabBar() {
     final stepIcons = [

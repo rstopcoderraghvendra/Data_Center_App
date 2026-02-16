@@ -207,24 +207,24 @@ class _HomeScreenState extends State<HomeScreen> {
       body: Column(
         children: [
           // Top Action Buttons - Show Create button only for admin
-          if (_isAdmin)
-            Container(
-              padding: const EdgeInsets.all(12),
-              child: Row(
-                children: [
-                  Expanded(child: Container()),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _buildTopButton(
-                      'Create',
-                      Icons.add_circle_outline,
-                      const Color(0xFF48BB78),
-                      _showCreateDialog,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+          // if (_isAdmin)
+          //   Container(
+          //     padding: const EdgeInsets.all(12),
+          //     child: Row(
+          //       children: [
+          //         Expanded(child: Container()),
+          //         const SizedBox(width: 10),
+          //         Expanded(
+          //           child: _buildTopButton(
+          //             'Create hello',
+          //             Icons.add_circle_outline,
+          //             const Color(0xFF48BB78),
+          //             _showCreateDialog,
+          //           ),
+          //         ),
+          //       ],
+          //     ),
+          //   ),
 
           // Loading or Error or Projects GridView
           Expanded(
