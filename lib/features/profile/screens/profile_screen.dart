@@ -1,3 +1,4 @@
+/*
 import 'package:flutter/material.dart';
 import '../../common/widgets/primary_button.dart';
 import '../../../app/routes/route_names.dart';
@@ -504,7 +505,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                       ),
                       const SizedBox(height: 15),
-                     /* Container(
+                     */
+/* Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
                           color: Colors.white.withOpacity(0.1),
@@ -563,6 +565,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ],
                         ),
                       ),*/
+/*
+
                       _buildBillDistributionDetailsButton(),
                       const SizedBox(height: 20),
                     ],
@@ -930,7 +934,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                       ),
 
-                  /*    const SizedBox(height: 10),
+                  */
+/*    const SizedBox(height: 10),
 
                       Row(
                         children: [
@@ -947,6 +952,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                         ],
                       ),*/
+/*
+
                     ],
                   ),
                 ),
@@ -1070,3 +1077,1270 @@ class _ProfileField {
     this.alwaysReadOnly = false,
   });
 }
+*/
+
+import 'package:flutter/material.dart';
+
+import '../../../app/routes/route_names.dart';
+import '../../../core/network/api_client.dart';
+import '../../../core/storage/local_storage.dart';
+import '../../../data/repositories/auth_repository.dart';
+import '../../model/monthlyentrydata.dart';
+import 'monthlyentryreportscreen.dart';
+
+class ProfileScreen extends StatefulWidget {
+  const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  static const Color _primary = Color(0xFF667EEA);
+  static const Color _secondary = Color(0xFF764BA2);
+  static const Color _bg = Color(0xFFF5F7FB);
+  static const Color _card = Colors.white;
+  static const Color _textDark = Color(0xFF1F2937);
+  static const Color _textMuted = Color(0xFF718096);
+  static const Color _border = Color(0xFFE2E8F0);
+  static const Color _danger = Color(0xFFE53E3E);
+
+  bool _isEditing = false;
+  bool _loading = true;
+  bool _saving = false;
+
+  late final AuthRepository _authRepository;
+  late final Map<String, TextEditingController> _controllers;
+
+  List<MonthlyEntryData> _monthlyEntries = [];
+
+  final _fields = const [
+    _ProfileField('name', 'Name', Icons.person_outline),
+    _ProfileField(
+      'email',
+      'Email',
+      Icons.email_outlined,
+      keyboard: TextInputType.emailAddress,
+      alwaysReadOnly: true,
+    ),
+    _ProfileField('dob', 'Date of birth', Icons.cake_outlined),
+    _ProfileField('gender', 'Gender', Icons.wc_outlined),
+    _ProfileField('address', 'Address', Icons.home_outlined, maxLines: 2),
+    _ProfileField('country', 'Country', Icons.public_outlined),
+    _ProfileField('state', 'State', Icons.map_outlined),
+    _ProfileField('city', 'City', Icons.location_city_outlined),
+    _ProfileField(
+      'pin_code',
+      'Pin code',
+      Icons.local_post_office_outlined,
+      keyboard: TextInputType.number,
+    ),
+    _ProfileField(
+      'date_of_joining',
+      'Date of joining',
+      Icons.event_available_outlined,
+    ),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _authRepository = AuthRepository(ApiClient(storage: LocalStorage()));
+    _controllers = {
+      for (final field in _fields) field.key: TextEditingController(),
+    };
+    _controllers['bill_distribution_entery_count'] = TextEditingController();
+    _controllers['survey_data_entery_count'] = TextEditingController();
+    _loadProfile();
+  }
+
+  @override
+  void dispose() {
+    for (final controller in _controllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  Future<void> _loadProfile() async {
+    try {
+      final data = await _authRepository.me();
+
+      if (!mounted) return;
+
+      setState(() {
+        _controllers['name']?.text = data['name']?.toString() ?? '';
+        _controllers['email']?.text = data['email']?.toString() ?? '';
+        _controllers['dob']?.text = _formatProfileDate(data['dob']);
+        _controllers['gender']?.text = data['gender']?.toString() ?? '';
+        _controllers['address']?.text = data['address']?.toString() ?? '';
+        _controllers['country']?.text = data['country']?.toString() ?? '';
+        _controllers['state']?.text = data['state']?.toString() ?? '';
+        _controllers['city']?.text = data['city']?.toString() ?? '';
+        _controllers['pin_code']?.text = data['pin_code']?.toString() ?? '';
+        _controllers['date_of_joining']?.text =
+            _formatProfileDate(data['date_of_joining']);
+
+        _controllers['bill_distribution_entery_count']?.text =
+            data['bill_distribution_entery_count']?.toString() ?? '0';
+
+        _controllers['survey_data_entery_count']?.text =
+            data['survey_data_entery_count']?.toString() ?? '0';
+
+        _monthlyEntries = MonthlyEntryData.parseList(
+          data['monthly_entries'] ??
+              data['month_wise_entries'] ??
+              data['entry_month_wise'],
+        );
+      });
+    } catch (e) {
+      _showMessage('Failed to load profile');
+    } finally {
+      if (mounted) {
+        setState(() => _loading = false);
+      }
+    }
+  }
+  Future<void> _saveProfile() async {
+    if (_saving) return;
+
+    setState(() => _saving = true);
+
+    try {
+      final payload = <String, dynamic>{
+        'name': _controllers['name']?.text.trim(),
+        'dob': _controllers['dob']?.text.trim(),
+        'gender': _controllers['gender']?.text.trim().toLowerCase(),
+        'address': _controllers['address']?.text.trim(),
+        'country': _controllers['country']?.text.trim(),
+        'state': _controllers['state']?.text.trim(),
+        'city': _controllers['city']?.text.trim(),
+        'pin_code': _controllers['pin_code']?.text.trim(),
+        'date_of_joining': _controllers['date_of_joining']?.text.trim(),
+      };
+
+      payload.removeWhere(
+            (key, value) => value == null || value.toString().trim().isEmpty,
+      );
+
+      await _authRepository.updateProfile(payload);
+
+      if (!mounted) return;
+      setState(() => _isEditing = false);
+      _showMessage('Profile updated');
+    } catch (e) {
+      if (mounted) {
+        _showMessage('Failed to update', isError: true);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _saving = false);
+      }
+    }
+  }
+
+  Future<void> _logout(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierColor: Colors.black.withOpacity(0.45),
+      builder: (context) => Dialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                height: 58,
+                width: 58,
+                decoration: BoxDecoration(
+                  color: _danger.withOpacity(0.10),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: const Icon(
+                  Icons.logout_rounded,
+                  color: _danger,
+                  size: 28,
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Logout',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                  color: _textDark,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Are you sure you want to logout?',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 13,
+                  height: 1.5,
+                  color: _textMuted,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 22),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: _textMuted,
+                        side: const BorderSide(color: _border),
+                        padding: const EdgeInsets.symmetric(vertical: 13),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: const Text(
+                        'Cancel',
+                        style: TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      style: ElevatedButton.styleFrom(
+                        elevation: 0,
+                        backgroundColor: _danger,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 13),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: const Text(
+                        'Logout',
+                        style: TextStyle(fontWeight: FontWeight.w900),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (confirmed == true) {
+      await _authRepository.logout();
+      if (!mounted) return;
+      Navigator.of(context).pushNamedAndRemoveUntil(
+        RouteNames.login,
+            (route) => false,
+      );
+    }
+  }
+
+  void _showMessage(String message, {bool isError = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? _danger : _primary,
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.all(16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return const Scaffold(
+        backgroundColor: _bg,
+        body: _ProfileLoadingView(),
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: _bg,
+      body: CustomScrollView(
+        physics: const BouncingScrollPhysics(),
+        slivers: [
+          _buildAppBar(),
+          SliverToBoxAdapter(
+            child: Transform.translate(
+              offset: const Offset(0, -22),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Column(
+                  children: [
+                    _buildEntrySummaryCard(),
+                    const SizedBox(height: 14),
+                    _buildBillDistributionDetailsButton(),
+                    const SizedBox(height: 16),
+                    _buildProfileDetailsCard(),
+                    const SizedBox(height: 16),
+                    if (_isEditing) _buildEditActionsCard(),
+                    if (!_isEditing) _buildAccountActionsCard(),
+                    const SizedBox(height: 22),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  SliverAppBar _buildAppBar() {
+    final name = _controllers['name']?.text.trim() ?? '';
+    final email = _controllers['email']?.text.trim() ?? '';
+
+    return SliverAppBar(
+      expandedHeight: 210,
+      pinned: true,
+      elevation: 0,
+      backgroundColor: _primary,
+      leadingWidth: 48,
+      toolbarHeight: 50,
+      leading: Padding(
+        padding: const EdgeInsets.only(left: 10),
+        child: _circleIconButton(
+          icon: Icons.arrow_back_rounded,
+          onTap: () => Navigator.maybePop(context),
+        ),
+      ),
+      title: const Text(
+        'Profile',
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 14,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+      centerTitle: true,
+      actions: [
+        Padding(
+          padding: const EdgeInsets.only(right: 10),
+          child: _circleIconButton(
+            icon: _isEditing ? Icons.check_rounded : Icons.edit_rounded,
+            showLoader: _saving,
+            onTap: _saving
+                ? null
+                : () {
+              if (_isEditing) {
+                _saveProfile();
+              } else {
+                setState(() => _isEditing = true);
+              }
+            },
+          ),
+        ),
+      ],
+      flexibleSpace: FlexibleSpaceBar(
+        collapseMode: CollapseMode.pin,
+        background: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [_primary, _secondary],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+          child: Stack(
+            children: [
+              Positioned(
+                right: -40,
+                top: -20,
+                child: _decorCircle(
+                  120,
+                  Colors.white.withOpacity(0.08),
+                ),
+              ),
+              Positioned(
+                left: -30,
+                bottom: 6,
+                child: _decorCircle(
+                  82,
+                  Colors.white.withOpacity(0.06),
+                ),
+              ),
+
+              Positioned.fill(
+                child: SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(18, 54, 18, 18),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Container(
+                          height: 52,
+                          width: 52,
+                          padding: const EdgeInsets.all(3),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.18),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.28),
+                              width: 1,
+                            ),
+                          ),
+                          child: Container(
+                            decoration: const BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.person_rounded,
+                              color: _primary,
+                              size: 30,
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 8),
+
+                        if (name.isNotEmpty)
+                          SizedBox(
+                            width: double.infinity,
+                            child: Text(
+                              name,
+                              textAlign: TextAlign.center,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 0.1,
+                              ),
+                            ),
+                          ),
+
+                        if (email.isNotEmpty) ...[
+                          const SizedBox(height: 6),
+                          Align(
+                            alignment: Alignment.center,
+                            child: Container(
+                              constraints: const BoxConstraints(maxWidth: 220),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.16),
+                                borderRadius: BorderRadius.circular(18),
+                                border: Border.all(
+                                  color: Colors.white.withOpacity(0.18),
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(
+                                    Icons.email_outlined,
+                                    color: Colors.white,
+                                    size: 12,
+                                  ),
+                                  const SizedBox(width: 5),
+                                  Flexible(
+                                    child: Text(
+                                      email,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        color: Colors.white.withOpacity(0.92),
+                                        fontSize: 10.5,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _decorCircle(double size, Color color) {
+    return Container(
+      height: size,
+      width: size,
+      decoration: BoxDecoration(
+        color: color,
+        shape: BoxShape.circle,
+      ),
+    );
+  }
+
+  Widget _circleIconButton({
+    required IconData icon,
+    required VoidCallback? onTap,
+    bool showLoader = false,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: Container(
+          height: 34,
+          width: 34,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.17),
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: Colors.white.withOpacity(0.18),
+            ),
+          ),
+          child: showLoader
+              ? const SizedBox(
+            height: 15,
+            width: 15,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: Colors.white,
+            ),
+          )
+              : Icon(
+            icon,
+            color: Colors.white,
+            size: 17,
+          ),
+        ),
+      ),
+    );
+  }
+
+
+  Widget _buildEntrySummaryCard() {
+    final billCount = _controllers['bill_distribution_entery_count']?.text ?? '0';
+    final surveyCount = _controllers['survey_data_entery_count']?.text ?? '0';
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: _premiumCardDecoration(),
+      child: Row(
+        children: [
+          Expanded(
+            child: _summaryItem(
+              icon: Icons.receipt_long_rounded,
+              label: 'Bill Entries',
+              value: billCount,
+            ),
+          ),
+          Container(height: 42, width: 1, color: _border),
+          Expanded(
+            child: _summaryItem(
+              icon: Icons.fact_check_rounded,
+              label: 'Survey Entries',
+              value: surveyCount,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _summaryItem({
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Container(
+          height: 42,
+          width: 42,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [_primary.withOpacity(0.14), _secondary.withOpacity(0.12)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Icon(icon, color: _primary, size: 20),
+        ),
+        const SizedBox(width: 10),
+        Flexible(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                value,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: _textDark,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: _textMuted,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBillDistributionDetailsButton() {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          _monthlyEntries.isNotEmpty;
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const BillDistributionDetailsScreen(),
+            ),
+          );
+        },
+        borderRadius: BorderRadius.circular(22),
+        child: Ink(
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [_primary, _secondary],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(22),
+            boxShadow: [
+              BoxShadow(
+                color: _primary.withOpacity(0.28),
+                blurRadius: 22,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Stack(
+            children: [
+              Positioned(
+                right: -24,
+                top: -18,
+                child: _decorCircle(92, Colors.white.withOpacity(0.10)),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    Container(
+                      height: 52,
+                      width: 52,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.18),
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.18),
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.receipt_long_rounded,
+                        color: Colors.white,
+                        size: 25,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Bill Distribution Details',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          const SizedBox(height: 5),
+                          Text(
+                            'View month-wise entries',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.78),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Container(
+                      height: 36,
+                      width: 36,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.18),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.arrow_forward_ios_rounded,
+                        color: Colors.white,
+                        size: 15,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProfileDetailsCard() {
+    return Container(
+      decoration: _premiumCardDecoration(),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+            child: Row(
+              children: [
+                Container(
+                  height: 36,
+                  width: 36,
+                  decoration: BoxDecoration(
+                    color: _primary.withOpacity(0.10),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.badge_outlined,
+                    color: _primary,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Text(
+                    'Profile Information',
+                    style: TextStyle(
+                      color: _textDark,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 4),
+          ..._visibleFields().map(_buildFieldItem),
+          const SizedBox(height: 10),
+        ],
+      ),
+    );
+  }
+
+  Iterable<_ProfileField> _visibleFields() {
+    if (_isEditing) return _fields;
+    return _fields.where((field) {
+      final value = _controllers[field.key]?.text.trim() ?? '';
+      return value.isNotEmpty;
+    });
+  }
+
+  Widget _buildFieldItem(_ProfileField field) {
+    final controller = _controllers[field.key]!;
+    final value = controller.text.trim();
+    final displayValue = value.isEmpty ? 'Not available' : value;
+
+    if (_isEditing && !field.alwaysReadOnly) {
+      return Container(
+        margin: const EdgeInsets.only(bottom: 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              field.label,
+              style: const TextStyle(
+                fontSize: 12,
+                color: Color(0xFF4A5568),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 7),
+            TextField(
+              controller: controller,
+              maxLines: field.maxLines,
+              keyboardType: field.keyboard,
+              style: const TextStyle(
+                fontSize: 13,
+                color: Color(0xFF2D3748),
+                fontWeight: FontWeight.w600,
+              ),
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: const Color(0xFFF8FAFC),
+                prefixIcon: Icon(
+                  field.icon,
+                  size: 19,
+                  color: const Color(0xFF667eea),
+                ),
+                hintText: field.label,
+                hintStyle: const TextStyle(
+                  color: Color(0xFFA0AEC0),
+                  fontSize: 12,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide.none,
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: const BorderSide(
+                    color: Color(0xFF667eea),
+                    width: 1.5,
+                  ),
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 13,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: const Color(0xFFE2E8F0),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.045),
+            blurRadius: 14,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            height: 42,
+            width: 42,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  const Color(0xFF667eea).withOpacity(0.14),
+                  const Color(0xFF764ba2).withOpacity(0.10),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(13),
+            ),
+            child: Icon(
+              field.icon,
+              size: 20,
+              color: const Color(0xFF667eea),
+            ),
+          ),
+          const SizedBox(width: 13),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  field.label,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF718096),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  displayValue,
+                  style: TextStyle(
+                    fontSize: 13,
+                    height: 1.35,
+                    fontWeight: FontWeight.w800,
+                    color: value.isEmpty
+                        ? const Color(0xFFA0AEC0)
+                        : const Color(0xFF2D3748),
+                  ),
+                  maxLines: field.maxLines == 1 ? 2 : field.maxLines + 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          if (field.alwaysReadOnly)
+            Container(
+              margin: const EdgeInsets.only(left: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEDF2F7),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Text(
+                'Read Only',
+                style: TextStyle(
+                  fontSize: 9.5,
+                  color: Color(0xFF718096),
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+  Widget _buildEditActionsCard() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: _premiumCardDecoration(),
+      child: Column(
+        children: [
+          _gradientButton(
+            label: _saving ? 'Saving...' : 'Save Changes',
+            icon: Icons.check_circle_rounded,
+            isLoading: _saving,
+            onTap: _saving ? null : _saveProfile,
+          ),
+          const SizedBox(height: 10),
+          _outlineActionButton(
+            label: 'Cancel',
+            icon: Icons.close_rounded,
+            onTap: () => setState(() => _isEditing = false),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAccountActionsCard() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: _premiumCardDecoration(),
+      child: Column(
+        children: [
+          _actionTile(
+            icon: Icons.lock_outline_rounded,
+            title: 'Change Password',
+            backgroundColor: _primary.withOpacity(0.10),
+            iconColor: _primary,
+            onTap: () {
+              Navigator.pushNamed(context, RouteNames.changePassword);
+            },
+          ),
+          const SizedBox(height: 10),
+          _actionTile(
+            icon: Icons.logout_rounded,
+            title: 'Logout',
+            backgroundColor: _danger.withOpacity(0.10),
+            iconColor: _danger,
+            onTap: () => _logout(context),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _actionTile({
+    required IconData icon,
+    required String title,
+    required Color backgroundColor,
+    required Color iconColor,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.all(13),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: _border.withOpacity(0.85)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                height: 38,
+                width: 38,
+                decoration: BoxDecoration(
+                  color: backgroundColor,
+                  borderRadius: BorderRadius.circular(13),
+                ),
+                child: Icon(icon, color: iconColor, size: 19),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    color: _textDark,
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              const Icon(
+                Icons.arrow_forward_ios_rounded,
+                color: _textMuted,
+                size: 15,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _gradientButton({
+    required String label,
+    required IconData icon,
+    required VoidCallback? onTap,
+    bool isLoading = false,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Ink(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(colors: [_primary, _secondary]),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: _primary.withOpacity(0.22),
+                blurRadius: 16,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Center(
+            child: isLoading
+                ? const SizedBox(
+              height: 20,
+              width: 20,
+              child: CircularProgressIndicator(
+                color: Colors.white,
+                strokeWidth: 2,
+              ),
+            )
+                : Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, color: Colors.white, size: 18),
+                const SizedBox(width: 8),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _outlineActionButton({
+    required String label,
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: _border),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: _textMuted, size: 18),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: _textMuted,
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  BoxDecoration _premiumCardDecoration() {
+    return BoxDecoration(
+      color: _card,
+      borderRadius: BorderRadius.circular(22),
+      border: Border.all(color: Colors.white),
+      boxShadow: [
+        BoxShadow(
+          color: const Color(0xFF1A202C).withOpacity(0.07),
+          blurRadius: 22,
+          offset: const Offset(0, 10),
+        ),
+      ],
+    );
+  }
+
+  String _formatProfileDate(dynamic value) {
+    final rawDate = value?.toString().trim() ?? '';
+
+    if (rawDate.isEmpty || rawDate.toLowerCase() == 'null') {
+      return '';
+    }
+
+    final parsedDate = DateTime.tryParse(rawDate);
+
+    if (parsedDate == null) {
+      return rawDate.split(' ').first;
+    }
+
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+
+    final day = parsedDate.day.toString().padLeft(2, '0');
+    final month = months[parsedDate.month - 1];
+    final year = parsedDate.year;
+
+    return '$day $month $year';
+  }
+}
+
+class _ProfileLoadingView extends StatelessWidget {
+  const _ProfileLoadingView();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            height: 72,
+            width: 72,
+            decoration: BoxDecoration(
+              color: _ProfileScreenState._primary.withOpacity(0.10),
+              shape: BoxShape.circle,
+            ),
+            child: const Center(
+              child: SizedBox(
+                height: 28,
+                width: 28,
+                child: CircularProgressIndicator(
+                  strokeWidth: 3,
+                  color: _ProfileScreenState._primary,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'Loading profile...',
+            style: TextStyle(
+              color: _ProfileScreenState._textMuted,
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProfileField {
+  final String key;
+  final String label;
+  final IconData icon;
+  final TextInputType? keyboard;
+  final int maxLines;
+  final bool alwaysReadOnly;
+
+  const _ProfileField(
+      this.key,
+      this.label,
+      this.icon, {
+        this.keyboard,
+        this.maxLines = 1,
+        this.alwaysReadOnly = false,
+      });
+}
+

@@ -1,6 +1,6 @@
 class ApiEndpoints {
-  //static const baseUrl = 'http://192.168.1.4:8000';
-  static const baseUrl = 'http://datamaster.tech';
+  static const baseUrl = 'http://192.168.1.9:8000';
+ // static const baseUrl = 'http://datamaster.tech';
   static const login = '/api/v1/login';
   static const me = '/api/v1/me';
   static const logout = '/api/v1/logout';
