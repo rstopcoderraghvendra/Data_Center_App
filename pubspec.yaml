@@ -1,7 +1,7 @@
 name: data_care_app
 description: Android application scaffold for Data Care.
 publish_to: "none"
-version: 0.1.0
+version: 0.1.0+1
 
 environment:
   sdk: ">=3.3.0 <4.0.0"
@@ -9,19 +9,44 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+
   http: ^1.2.2
   shared_preferences: ^2.3.2
   connectivity_plus: ^7.0.0
-  google_fonts: ^7.0.2
+  google_fonts: ^6.2.1
   image_picker: ^1.2.1
   geolocator: ^14.0.2
   url_launcher: ^6.3.2
   google_maps_flutter: ^2.14.2
-  # animated_bottom_navigation_bar: ^1.4.0
+  flutter_image_compress: ^2.4.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
 
+  flutter_launcher_icons: ^0.13.1
+  flutter_native_splash: ^2.4.1
+
 flutter:
   uses-material-design: true
+
+  assets:
+    - assets/
+    - assets/icons/
+
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: "assets/icons/app_icon.png"
+  min_sdk_android: 21
+
+flutter_native_splash:
+  color: "#07112F"
+  image: assets/icons/app_icon.png
+  android: true
+  ios: false
+  web: false
+
+  android_12:
+    color: "#07112F"
+    image: assets/icons/app_icon.png

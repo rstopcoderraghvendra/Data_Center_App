@@ -3,6 +3,8 @@ import 'package:data_care_app/core/network/api_client.dart';
 import 'package:data_care_app/core/storage/local_storage.dart';
 import 'package:data_care_app/features/bill_distribution/screens/new_bill_distribution/bill_distribution_customer_view_screen.dart';
 import 'dart:async';
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
@@ -37,6 +39,10 @@ class _BillDistributionMapScreenState extends State<BillDistributionMapScreen> {
   List<_CustomerLocation> _customers = [];
   List<_SearchCustomer> _searchResults = [];
   CameraPosition _initialCamera = _defaultCamera;
+  final Map<int, BitmapDescriptor> _markerIcons = {};
+
+  bool _isRefreshingMap = false;
+  int _mapRefreshKey = 0;
 
   static const CameraPosition _defaultCamera = CameraPosition(
     target: LatLng(28.6139, 77.2090),
@@ -49,7 +55,7 @@ class _BillDistributionMapScreenState extends State<BillDistributionMapScreen> {
     _loadCustomerLocations();
   }
 
-  Future<void> _loadCustomerLocations() async {
+ /* Future<void> _loadCustomerLocations() async {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -78,6 +84,19 @@ class _BillDistributionMapScreenState extends State<BillDistributionMapScreen> {
               customer.latitude != null && customer.longitude != null)
           .toList();
 
+      // Build custom marker icons with bill sequence numbers
+      for (final c in customers) {
+        if (c.latitude == null || c.longitude == null) continue;
+        if (c.billSequence.isEmpty) continue;
+        if (_markerIcons.containsKey(c.id)) continue;
+        try {
+          _markerIcons[c.id] =
+              await _createNumberedMarker(c.billSequence, c.isActive);
+        } catch (_) {
+          // Fallback to default icon if custom creation fails
+        }
+      }
+
       if (!mounted) return;
       setState(() {
         _customers = customers;
@@ -103,6 +122,155 @@ class _BillDistributionMapScreenState extends State<BillDistributionMapScreen> {
         _isLoading = false;
       });
     }
+  }*/
+
+  Future<void> _loadCustomerLocations({bool showLoader = true}) async {
+    if (showLoader) {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+    } else {
+      setState(() {
+        _errorMessage = null;
+      });
+    }
+
+    try {
+      final response = await _apiClient.getJson(
+        ApiEndpoints.fetchCustomersByProjectId(widget.projectId),
+        query: {
+          if (widget.colonyId != null) 'colony_id': widget.colonyId.toString(),
+          if (widget.colonyName != null && widget.colonyName!.trim().isNotEmpty)
+            'colony_name': widget.colonyName!.trim(),
+        },
+      );
+
+      final data = response['data'];
+
+      if (data is! List) {
+        throw Exception('Invalid customers response format');
+      }
+
+      final customers = data
+          .whereType<Map>()
+          .map((item) => Map<String, dynamic>.from(item))
+          .map(_CustomerLocation.fromJson)
+          .where(
+            (customer) =>
+        customer.latitude != null && customer.longitude != null,
+      )
+          .toList();
+
+      for (final c in customers) {
+        if (c.latitude == null || c.longitude == null) continue;
+        if (c.billSequence.isEmpty) continue;
+
+        try {
+          _markerIcons[c.id] = await _createNumberedMarker(
+            c.billSequence,
+            c.isActive,
+          );
+        } catch (_) {
+          // fallback marker use hoga
+        }
+      }
+
+      if (!mounted) return;
+
+      setState(() {
+        _customers = customers;
+
+        if (customers.isNotEmpty) {
+          _initialCamera = CameraPosition(
+            target: LatLng(
+              customers.first.latitude!,
+              customers.first.longitude!,
+            ),
+            zoom: 16,
+          );
+        } else {
+          _initialCamera = _defaultCamera;
+        }
+
+        _isLoading = false;
+      });
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _fitMapToMarkers();
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _errorMessage = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<BitmapDescriptor> _createNumberedMarker(
+    String sequence,
+    bool isActive,
+  ) async {
+    const double size = 110;
+    final ui.PictureRecorder recorder = ui.PictureRecorder();
+    final Canvas canvas = Canvas(
+      recorder,
+      Rect.fromLTWH(0, 0, size, size),
+    );
+
+    final Color fillColor =
+        isActive ? const Color(0xFF22C55E) : const Color(0xFFF97373);
+
+    final Paint paint = Paint()..color = fillColor;
+
+    final Path path = Path();
+    const double radius = size * 0.34;
+    final Offset circleCenter = Offset(size / 2, radius + 4);
+
+    // Draw pin shape (circle + tail)
+    path.addOval(Rect.fromCircle(center: circleCenter, radius: radius));
+    path.moveTo(size / 2, size - 8);
+    path.lineTo(circleCenter.dx - radius / 2, circleCenter.dy + radius / 2);
+    path.lineTo(circleCenter.dx + radius / 2, circleCenter.dy + radius / 2);
+    path.close();
+
+    canvas.drawShadow(path, Colors.black.withOpacity(0.4), 4, true);
+    canvas.drawPath(path, paint);
+
+    // Draw bill sequence text
+    final String text = sequence;
+    final TextPainter textPainter = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 30,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+      textAlign: TextAlign.center,
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+      ellipsis: '…',
+    );
+
+    final double maxTextWidth = radius * 1.6;
+    textPainter.layout(minWidth: 0, maxWidth: maxTextWidth);
+    final Offset textOffset = Offset(
+      circleCenter.dx - textPainter.width / 2,
+      circleCenter.dy - textPainter.height / 2,
+    );
+    textPainter.paint(canvas, textOffset);
+
+    final ui.Image image =
+        await recorder.endRecording().toImage(size.toInt(), size.toInt());
+    final ByteData? byteData =
+        await image.toByteData(format: ui.ImageByteFormat.png);
+    final Uint8List bytes = byteData!.buffer.asUint8List();
+
+    return BitmapDescriptor.fromBytes(bytes);
   }
 
   void _showCustomerDetailsPopup(_CustomerLocation customer) {
@@ -172,6 +340,8 @@ class _BillDistributionMapScreenState extends State<BillDistributionMapScreen> {
               ),
               const SizedBox(height: 14),
               _detailRow('ID', customer.id.toString()),
+              _detailRow('Property ID', customer.propertyId),
+              _detailRow('Bill Seq', customer.billSequence),
               _detailRow('Name', customer.name),
               _detailRow('Municipality', customer.municipalityName),
               _detailRow('Mobile', customer.mobileNo ?? '-'),
@@ -397,12 +567,20 @@ class _BillDistributionMapScreenState extends State<BillDistributionMapScreen> {
             markerId: MarkerId('customer_${customer.id}'),
             position: LatLng(customer.latitude!, customer.longitude!),
             onTap: () => _showCustomerDetailsPopup(customer),
-            infoWindow: InfoWindow.noText,
-            icon: BitmapDescriptor.defaultMarkerWithHue(
-              customer.isActive
-                  ? BitmapDescriptor.hueGreen
-                  : BitmapDescriptor.hueRed,
+            infoWindow: InfoWindow(
+              title: customer.propertyId.isNotEmpty
+                  ? customer.propertyId
+                  : customer.name,
+              snippet: customer.billSequence.isNotEmpty
+                  ? 'Bill #${customer.billSequence}'
+                  : null,
             ),
+            icon: _markerIcons[customer.id] ??
+                BitmapDescriptor.defaultMarkerWithHue(
+                  customer.isActive
+                      ? BitmapDescriptor.hueGreen
+                      : BitmapDescriptor.hueRed,
+                ),
           ),
         )
         .toSet();
@@ -461,6 +639,23 @@ class _BillDistributionMapScreenState extends State<BillDistributionMapScreen> {
               color: Colors.white,
             ),
           ),
+          IconButton(
+            tooltip: 'Refresh Map',
+            onPressed: _isRefreshingMap ? null : _refreshFullMap,
+            icon: _isRefreshingMap
+                ? const SizedBox(
+              height: 20,
+              width: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+              ),
+            )
+                : const Icon(
+              Icons.refresh_rounded,
+              color: Colors.white,
+            ),
+          ),
         ],
       ),
       body: _isLoading
@@ -510,7 +705,21 @@ class _BillDistributionMapScreenState extends State<BillDistributionMapScreen> {
                 )
               : Stack(
                   children: [
+                  /*  GoogleMap(
+                      initialCameraPosition: _initialCamera,
+                      markers: visibleMarkers,
+                      myLocationEnabled: true,
+                      myLocationButtonEnabled: false,
+                      mapToolbarEnabled: false,
+                      zoomControlsEnabled: false,
+                      onMapCreated: (controller) {
+                        _mapController = controller;
+                        _fitMapToMarkers();
+                      },
+                    ),*/
+
                     GoogleMap(
+                      key: ValueKey('bill_distribution_map_$_mapRefreshKey'),
                       initialCameraPosition: _initialCamera,
                       markers: visibleMarkers,
                       myLocationEnabled: true,
@@ -782,6 +991,61 @@ class _BillDistributionMapScreenState extends State<BillDistributionMapScreen> {
       margin: const EdgeInsets.symmetric(horizontal: 8),
     );
   }
+
+
+
+  Future<void> _refreshFullMap() async {
+    if (_isRefreshingMap || _isLoading) return;
+
+    setState(() {
+      _isRefreshingMap = true;
+      _showSearchInput = false;
+      _searchQuery = '';
+      _searchResults = [];
+      _isSearchLoading = false;
+      _searchController.clear();
+      _markerIcons.clear();
+      _mapRefreshKey++;
+    });
+
+    try {
+      await _loadCustomerLocations(showLoader: false);
+
+      if (!mounted) return;
+
+      await Future.delayed(const Duration(milliseconds: 250));
+
+      if (!mounted) return;
+
+      await _fitMapToMarkers();
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Map refreshed successfully'),
+          behavior: SnackBarBehavior.floating,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Map refresh failed: $e'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (!mounted) return;
+
+      setState(() {
+        _isRefreshingMap = false;
+      });
+    }
+  }
 }
 
 class _CustomerLocation {
@@ -791,6 +1055,8 @@ class _CustomerLocation {
   final String? mobileNo;
   final String authorizationStatus;
   final bool isActive;
+  final String propertyId;
+  final String billSequence;
   final double? latitude;
   final double? longitude;
 
@@ -801,6 +1067,8 @@ class _CustomerLocation {
     required this.mobileNo,
     required this.authorizationStatus,
     required this.isActive,
+    required this.propertyId,
+    required this.billSequence,
     required this.latitude,
     required this.longitude,
   });
@@ -823,6 +1091,8 @@ class _CustomerLocation {
       authorizationStatus:
           (json['authorization_status'] ?? 'unapproved').toString(),
       isActive: _toBool(json['is_active']),
+      propertyId: (json['property_details_property_id'] ?? '').toString(),
+      billSequence: (json['bill_sequence'] ?? '').toString(),
       latitude: latitude,
       longitude: longitude,
     );

@@ -1,6 +1,6 @@
 class ApiEndpoints {
   //static const baseUrl = 'http://192.168.1.4:8000';
-  static const baseUrl = 'http://datacore.expensi.in';
+  static const baseUrl = 'http://datamaster.tech';
   static const login = '/api/v1/login';
   static const me = '/api/v1/me';
   static const logout = '/api/v1/logout';
@@ -11,6 +11,7 @@ class ApiEndpoints {
   static const customers = '/api/v1/customers';
   static const sync = '/api/v1/sync';
   static const projects = '/api/v1/projects';
+  static const authBillDetails = '/api/v1/auth-bill-details';
   static String projectById(int id) => '/api/v1/projects/$id';
   static String fetchCustomersByProjectId(int id) => '/api/v1/fetch-customers-for-mapping/$id';
   static String billDistributionCustomersByProjectId(int id) => '/api/v1/bill-distribution-customers/$id';
@@ -19,4 +20,5 @@ class ApiEndpoints {
   static String billDistributionPreviousCustomerViewByCustomerId(int id) => '/api/v1/bill-distribution-customers/previous-customer-view/$id';
   
   static String uploadCustomerSideViewImageByCustomerId(int id) => '/api/v1/bill-distribution-customers/upload-side-view-image/$id';
+
 }

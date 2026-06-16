@@ -3,6 +3,8 @@ import 'package:data_care_app/core/network/api_client.dart';
 import 'package:data_care_app/core/constants/api_endpoints.dart';
 import 'package:data_care_app/data/models/projects_model.dart';
 
+import '../../features/model/authbilldetailsresponse.dart';
+
 class ProjectRepository {
   final ApiClient _apiClient;
 
@@ -81,6 +83,45 @@ class ProjectRepository {
       return Project.fromJson(responseData);
     } catch (e) {
       throw Exception('Failed to update project status: $e');
+    }
+  }
+
+  Future<AuthBillDetailsResponse> getAuthBillDetails({
+    int? projectId,
+    String? dateFilter,
+    String? fromDate,
+    String? toDate,
+  }) async {
+    try {
+      final query = <String, String>{
+        if (projectId != null) 'project_id': projectId.toString(),
+
+        if (dateFilter != null && dateFilter.trim().isNotEmpty)
+          'date_filter': dateFilter.trim(),
+
+        if (fromDate != null && fromDate.trim().isNotEmpty)
+          'from_date': fromDate.trim(),
+
+        if (toDate != null && toDate.trim().isNotEmpty)
+          'to_date': toDate.trim(),
+      };
+
+      final response = await _apiClient.getJson(
+        ApiEndpoints.authBillDetails,
+        query: query,
+      );
+
+      final data = AuthBillDetailsResponse.fromJson(response);
+
+      if (!data.status) {
+        throw Exception(
+          response['message']?.toString() ?? 'Failed to fetch bill details',
+        );
+      }
+
+      return data;
+    } catch (e) {
+      throw Exception('Failed to fetch bill details: $e');
     }
   }
 }

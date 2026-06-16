@@ -4,6 +4,8 @@ import '../../../app/routes/route_names.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/storage/local_storage.dart';
 import '../../../data/repositories/auth_repository.dart';
+import '../../model/monthlyentrydata.dart';
+import 'monthlyentryreportscreen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -19,6 +21,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   late final AuthRepository _authRepository;
   late final Map<String, TextEditingController> _controllers;
 
+  List<MonthlyEntryData> _monthlyEntries = [];
+
   final _fields = const [
     _ProfileField('name', 'Name', Icons.person_outline),
     _ProfileField('email', 'Email', Icons.email_outlined,
@@ -29,10 +33,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _ProfileField('country', 'Country', Icons.public_outlined),
     _ProfileField('state', 'State', Icons.map_outlined),
     _ProfileField('city', 'City', Icons.location_city_outlined),
-    _ProfileField('pin_code', 'Pin code', Icons.local_post_office_outlined,
-        keyboard: TextInputType.number),
-    _ProfileField(
-        'date_of_joining', 'Date of joining', Icons.event_available_outlined),
+    _ProfileField('pin_code', 'Pin code', Icons.local_post_office_outlined, keyboard: TextInputType.number),
+    _ProfileField('date_of_joining', 'Date of joining', Icons.event_available_outlined),
   ];
 
   @override
@@ -106,6 +108,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     try {
       final data = await _authRepository.me();
       setState(() {
+
+
         _controllers['name']?.text = data['name']?.toString() ?? '';
         _controllers['dob']?.text = data['dob']?.toString() ?? '';
         _controllers['gender']?.text = data['gender']?.toString() ?? '';
@@ -114,13 +118,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _controllers['state']?.text = data['state']?.toString() ?? '';
         _controllers['city']?.text = data['city']?.toString() ?? '';
         _controllers['pin_code']?.text = data['pin_code']?.toString() ?? '';
-        _controllers['date_of_joining']?.text =
-            data['date_of_joining']?.toString() ?? '';
+        _controllers['date_of_joining']?.text = _formatProfileDate(data['date_of_joining']);
         _controllers['bill_distribution_entery_count']?.text =
             data['bill_distribution_entery_count']?.toString() ?? '0';
         _controllers['survey_data_entery_count']?.text =
             data['survey_data_entery_count']?.toString() ?? '0';
         _controllers['email']?.text = data['email']?.toString() ?? '';
+
+        _monthlyEntries = MonthlyEntryData.parseList(
+          data['monthly_entries'] ??
+              data['month_wise_entries'] ??
+              data['entry_month_wise'],
+        );
       });
     } catch (e) {
       _showMessage('Failed to load profile');
@@ -145,6 +154,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         'city': _controllers['city']?.text.trim(),
         'pin_code': _controllers['pin_code']?.text.trim(),
         'date_of_joining': _controllers['date_of_joining']?.text.trim(),
+    
       };
       payload.removeWhere(
         (key, value) => value == null || value.toString().trim().isEmpty,
@@ -494,13 +504,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                       ),
                       const SizedBox(height: 15),
-                      Container(
+                     /* Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
                           color: Colors.white.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: Row(
+                        child:
+                        Row(
                           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                           children: [
                             Column(
@@ -551,7 +562,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                           ],
                         ),
-                      ),
+                      ),*/
+                      _buildBillDistributionDetailsButton(),
                       const SizedBox(height: 20),
                     ],
                   ),
@@ -825,6 +837,219 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ],
       ),
     );
+  }
+
+  Widget _buildBillDistributionDetailsButton() {
+    final billCount = _controllers['bill_distribution_entery_count']?.text ?? '0';
+    final surveyCount = _controllers['survey_data_entery_count']?.text ?? '0';
+
+    return SizedBox(
+      width: 310,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            final entries = _monthlyEntries.isNotEmpty
+                ? _monthlyEntries
+                : [
+              MonthlyEntryData(
+                month: DateTime.now(),
+                billEntries: _toInt(billCount),
+                surveyEntries: _toInt(surveyCount),
+              ),
+            ];
+
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const BillDistributionDetailsScreen(),
+              ),
+            );
+          },
+          borderRadius: BorderRadius.circular(18),
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.14),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.22),
+                width: 1,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.08),
+                  blurRadius: 14,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  height: 44,
+                  width: 44,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.22),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: const Icon(
+                    Icons.receipt_long_rounded,
+                    color: Colors.white,
+                    size: 23,
+                  ),
+                ),
+
+                const SizedBox(width: 12),
+
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Bill Distribution Details',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+
+                      const SizedBox(height: 4),
+
+                      Text(
+                        'View month-wise entries',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.72),
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+
+                  /*    const SizedBox(height: 10),
+
+                      Row(
+                        children: [
+                          _miniCountChip(
+                            label: 'Bill',
+                            value: billCount,
+                            icon: Icons.article_rounded,
+                          ),
+                          const SizedBox(width: 7),
+                          _miniCountChip(
+                            label: 'Survey',
+                            value: surveyCount,
+                            icon: Icons.fact_check_rounded,
+                          ),
+                        ],
+                      ),*/
+                    ],
+                  ),
+                ),
+
+                const SizedBox(width: 8),
+
+                Container(
+                  height: 34,
+                  width: 34,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.18),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.arrow_forward_ios_rounded,
+                    color: Colors.white,
+                    size: 15,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _miniCountChip({
+    required String label,
+    required String value,
+    required IconData icon,
+  }) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.16),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              color: Colors.white,
+              size: 13,
+            ),
+            const SizedBox(width: 4),
+            Flexible(
+              child: Text(
+                '$label: $value',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  int _toInt(String value) {
+    return int.tryParse(value.trim()) ?? 0;
+  }
+
+  String _formatProfileDate(dynamic value) {
+    final rawDate = value?.toString().trim() ?? '';
+
+    if (rawDate.isEmpty || rawDate.toLowerCase() == 'null') {
+      return '';
+    }
+
+    final parsedDate = DateTime.tryParse(rawDate);
+
+    if (parsedDate == null) {
+      return rawDate.split(' ').first;
+    }
+
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+
+    final day = parsedDate.day.toString().padLeft(2, '0');
+    final month = months[parsedDate.month - 1];
+    final year = parsedDate.year;
+
+    return '$day $month $year';
   }
 }
 
